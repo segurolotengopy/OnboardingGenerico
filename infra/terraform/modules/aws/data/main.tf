@@ -80,6 +80,10 @@ locals {
 # ---------------------------------------------------------------------------
 
 resource "aws_dynamodb_table" "core" {
+  # checkov:skip=CKV_AWS_28:PITR se gobierna con var.enable_point_in_time_recovery,
+  # que vale true en stg y prd y false en dev por costo, segun se documenta en la
+  # propia variable. Checkov no puede evaluar el valor de una variable, asi que
+  # marca el recurso aunque la recuperacion si este activa donde importa.
   count = var.protect_from_destroy ? 0 : 1
 
   name         = "${local.name}-core"
@@ -139,6 +143,10 @@ resource "aws_dynamodb_table" "core" {
 }
 
 resource "aws_dynamodb_table" "core_protected" {
+  # checkov:skip=CKV_AWS_28:PITR se gobierna con var.enable_point_in_time_recovery,
+  # que vale true en stg y prd y false en dev por costo, segun se documenta en la
+  # propia variable. Checkov no puede evaluar el valor de una variable, asi que
+  # marca el recurso aunque la recuperacion si este activa donde importa.
   count = var.protect_from_destroy ? 1 : 0
 
   name         = "${local.name}-core"
@@ -213,6 +221,10 @@ resource "aws_dynamodb_table" "core_protected" {
 # ---------------------------------------------------------------------------
 
 resource "aws_dynamodb_table" "capabilities" {
+  # checkov:skip=CKV_AWS_28:PITR se gobierna con var.enable_point_in_time_recovery,
+  # que vale true en stg y prd y false en dev por costo, segun se documenta en la
+  # propia variable. Checkov no puede evaluar el valor de una variable, asi que
+  # marca el recurso aunque la recuperacion si este activa donde importa.
   name         = "${local.name}-capability-registry"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "PK"
@@ -283,6 +295,9 @@ resource "aws_dynamodb_table" "capabilities" {
 # ---------------------------------------------------------------------------
 
 resource "aws_dynamodb_table" "locks" {
+  # checkov:skip=CKV_AWS_28:Tabla de cerrojos efimeros con TTL. Su contenido se
+  # reconstruye solo y expira por si mismo; no hay estado que recuperar a un punto
+  # en el tiempo, de modo que PITR solo anadiria costo.
   name         = "${local.name}-locks"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "PK"
@@ -317,6 +332,10 @@ resource "aws_dynamodb_table" "locks" {
 # ---------------------------------------------------------------------------
 
 resource "aws_dynamodb_table" "keystore" {
+  # checkov:skip=CKV_AWS_28:PITR se gobierna con var.enable_point_in_time_recovery,
+  # que vale true en stg y prd y false en dev por costo, segun se documenta en la
+  # propia variable. Checkov no puede evaluar el valor de una variable, asi que
+  # marca el recurso aunque la recuperacion si este activa donde importa.
   count = var.create_keystore_table ? 1 : 0
 
   name         = "${local.name}-keystore"
