@@ -31,6 +31,13 @@ locals {
   name = "og-${var.env}"
 
   premium_tenants = { for k, v in var.tenants : k => v if try(v.tier, "standard") == "premium" }
+
+  # Llave CMEK efectiva de cada tenant premium: la suya si esta declarada, y si
+  # no la de la plataforma. Un valor nulo significa cifrado gestionado por
+  # Google, no ausencia de cifrado.
+  premium_tenant_cmek_key_names = {
+    for k, v in local.premium_tenants : k => try(var.tenant_cmek_key_names[k], var.cmek_key_name)
+  }
 }
 
 # ---------------------------------------------------------------------------
@@ -52,7 +59,15 @@ resource "google_firestore_database" "shared" {
   # forma explicita. Recuerde que CMEK es cifrado en reposo a nivel de servicio:
   # NO es lo mismo que el cifrado de campo por tenant, que sigue siendo trabajo
   # de la aplicacion.
-  kms_key_name = var.cmek_key_name
+  # El proveedor expone la CMEK como bloque `cmek_config`, no como argumento
+  # suelto. Sin llave declarada no se emite el bloque y la base queda con el
+  # cifrado gestionado por Google.
+  dynamic "cmek_config" {
+    for_each = var.cmek_key_name == null ? [] : [var.cmek_key_name]
+    content {
+      kms_key_name = cmek_config.value
+    }
+  }
 }
 
 # ---------------------------------------------------------------------------
@@ -72,7 +87,12 @@ resource "google_firestore_database" "tenant" {
   point_in_time_recovery_enablement = var.enable_point_in_time_recovery ? "POINT_IN_TIME_RECOVERY_ENABLED" : "POINT_IN_TIME_RECOVERY_DISABLED"
   delete_protection_state           = var.enable_delete_protection ? "DELETE_PROTECTION_ENABLED" : "DELETE_PROTECTION_DISABLED"
 
-  kms_key_name = try(var.tenant_cmek_key_names[each.key], var.cmek_key_name)
+  dynamic "cmek_config" {
+    for_each = local.premium_tenant_cmek_key_names[each.key] == null ? [] : [local.premium_tenant_cmek_key_names[each.key]]
+    content {
+      kms_key_name = cmek_config.value
+    }
+  }
 }
 
 # Aislamiento real de plano de datos: la cuenta de servicio del tenant solo
