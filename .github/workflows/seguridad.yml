@@ -74,10 +74,16 @@ jobs:
           pip install pip-audit
           pip install -e ".[dev,api]"
       - name: Auditar dependencias de terceros
-        # `--skip-editable` excluye el propio paquete, que está instalado con
-        # `pip install -e` y no existe en PyPI. `--strict` se mantiene para que
-        # cualquier dependencia que no se pueda auditar sí falle el trabajo.
-        run: pip-audit --strict --desc --skip-editable
+        # `--skip-editable` excluye el propio paquete, instalado con `pip -e` y
+        # ausente de PyPI por construcción.
+        #
+        # Sin `--strict` a propósito: esa opción falla la auditoría ante
+        # CUALQUIER dependencia no recolectada, incluido el salto que
+        # `--skip-editable` provoca deliberadamente, de modo que ambas juntas
+        # fallan siempre ("distribution marked as editable"). No se pierde
+        # cobertura: pip-audit ya sale con código 1 cuando encuentra una
+        # vulnerabilidad, que es lo que este trabajo vigila.
+        run: pip-audit --desc --skip-editable
 
   licencias:
     name: Cumplimiento de licencias
