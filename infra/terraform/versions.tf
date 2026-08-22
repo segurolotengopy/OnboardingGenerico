@@ -24,7 +24,7 @@ terraform {
     # El provider estable de Google cubre casi todos los recursos usados.
     google = {
       source  = "hashicorp/google"
-      version = "~> 6.10"
+      version = "~> 7.45"
     }
 
     # ADVERTENCIA: los recursos `google_api_gateway_*` han vivido historicamente
