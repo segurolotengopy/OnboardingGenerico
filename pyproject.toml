@@ -131,7 +131,11 @@ ignore_missing_imports = true
 # Pytest
 # -----------------------------------------------------------------------------
 [tool.pytest.ini_options]
-minversion = "8.0"
+# 7.4 es el minimo real: la bateria solo usa asserts, marcadores y el ajuste
+# `pythonpath` (pytest 7.0+). Se fija bajo a proposito para que el pytest del
+# sistema de una distribucion estable pueda ejecutar las pruebas sin crear un
+# entorno virtual. El extra [dev] sigue instalando pytest>=8 para CI.
+minversion = "7.4"
 testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-q --strict-markers"

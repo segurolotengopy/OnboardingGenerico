@@ -160,14 +160,20 @@ fi
 
 if PYTHONPATH=src "$PYTHON" -m pytest tests -q >/tmp/og_pytest.log 2>&1; then
   ok "pytest: $(grep -oE '[0-9]+ passed.*' /tmp/og_pytest.log | tail -1)"
+elif grep -q "No module named pytest" /tmp/og_pytest.log; then
+  aviso "pytest no está instalado; se omite la batería completa."
+  aviso "Instálelo con 'make install' cuando quiera ejecutarla."
+elif grep -qE "UsageError|error: unrecognized arguments|requires pytest-" /tmp/og_pytest.log; then
+  # El pytest del sistema no entendió la configuración: es un problema de la
+  # herramienta, no del código. La prueba de humo ya validó el núcleo, así que
+  # no se interrumpe la configuración por esto.
+  aviso "El pytest instalado no pudo interpretar la configuración del proyecto:"
+  printf "        %s\n" "$(grep -m1 -E 'UsageError|ERROR' /tmp/og_pytest.log | tail -c 160)"
+  aviso "Use 'make install' para crear un entorno virtual con la versión correcta."
 else
-  if grep -q "No module named pytest" /tmp/og_pytest.log; then
-    aviso "pytest no está instalado; se omite la batería completa (la prueba de humo sí pasó)."
-  else
-    error "Las pruebas fallaron. Revise /tmp/og_pytest.log"
-    tail -20 /tmp/og_pytest.log
-    exit 1
-  fi
+  error "Las pruebas fallaron. Revise /tmp/og_pytest.log"
+  tail -20 /tmp/og_pytest.log
+  exit 1
 fi
 
 if PYTHONPATH=src "$PYTHON" scripts/verify_mrz.py --ejemplo td3 >/tmp/og_mrz.log 2>&1; then
