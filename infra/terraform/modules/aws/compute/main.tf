@@ -278,6 +278,11 @@ resource "aws_cloudwatch_log_group" "functions" {
 # ---------------------------------------------------------------------------
 
 resource "aws_lambda_function" "zip" {
+  # checkov:skip=CKV_AWS_116:Estas funciones se invocan de forma sincrona, desde la
+  # integracion de API Gateway y desde `arn:aws:states:::lambda:invoke`.
+  # `dead_letter_config` solo actua en invocaciones asincronas, asi que la cola
+  # nunca recibiria nada; los fallos los maneja el `Catch` de la maquina de estados.
+  # CKV_AWS_272 (firma de codigo) NO se suprime: es un hallazgo real, ver issue #14.
   for_each = var.zip_functions
 
   function_name = "${local.name}-${each.key}"
@@ -333,6 +338,11 @@ resource "aws_lambda_function" "zip" {
 # ---------------------------------------------------------------------------
 
 resource "aws_lambda_function" "container" {
+  # checkov:skip=CKV_AWS_116:Estas funciones se invocan de forma sincrona, desde la
+  # integracion de API Gateway y desde `arn:aws:states:::lambda:invoke`.
+  # `dead_letter_config` solo actua en invocaciones asincronas, asi que la cola
+  # nunca recibiria nada; los fallos los maneja el `Catch` de la maquina de estados.
+  # CKV_AWS_272 (firma de codigo) NO se suprime: es un hallazgo real, ver issue #14.
   for_each = var.container_functions
 
   function_name = "${local.name}-${each.key}"
