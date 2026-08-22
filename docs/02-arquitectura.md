@@ -468,7 +468,7 @@ La saga no puede deshacer una llamada a un proveedor externo ni un cotejo gubern
 | **A9** | **`LivenessPort` con proveedor certificado en ambas nubes.** | Rekognition Face Liveness en AWS + modelo abierto en GCP | GCP no tiene equivalente gestionado; los modelos abiertos de antispoofing son débiles frente a inyección, *deepfakes* y máscaras 3D. Un proveedor único elimina la divergencia de frontend. |
 | **A10** | **OTel como instrumentación única.** | SDK de X-Ray en AWS y Cloud Trace en GCP | OTel es el denominador común; evita dos instrumentaciones y dos modelos de traza. |
 | **A11** | **Sin datos binarios en el estado del orquestador.** | Pasar respuestas OCR completas entre estados | Cloud Workflows acumula **512 KB por ejecución** (variables + argumentos + eventos). Es el límite más restrictivo del sistema y dicta el diseño en ambas nubes. |
-| **A12** | **Python 3.12** con compatibilidad 3.11 en el código de núcleo. | Runtime políglota por componente | Un solo lenguaje en el núcleo mantiene el modelo de dominio único; los adaptadores pesados de visión pueden vivir en contenedor sin cambiar el núcleo. |
+| **A12** | **Python 3.14** con compatibilidad 3.11 en el código de núcleo. | Runtime políglota por componente | Un solo lenguaje en el núcleo mantiene el modelo de dominio único; los adaptadores pesados de visión pueden vivir en contenedor sin cambiar el núcleo. |
 
 ## 9. Vistas de despliegue
 

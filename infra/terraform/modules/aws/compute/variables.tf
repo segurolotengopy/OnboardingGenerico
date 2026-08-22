@@ -6,7 +6,7 @@ variable "env" {
 variable "python_runtime" {
   description = "Runtime gestionado de las funciones empaquetadas como zip."
   type        = string
-  default     = "python3.12"
+  default     = "python3.14"
 }
 
 variable "zip_architecture" {

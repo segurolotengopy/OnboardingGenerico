@@ -390,7 +390,7 @@ def cifrar_registro(a: aead.Aead, datos: bytes, ctx: TenantContext, record_id: s
 
 **La caché no es opcional.** Tink no trae caché de material criptográfico; el objeto `Aead` derivado se cachea por tenant en memoria del proceso, con TTL, límite de mensajes y de bytes, y **carga atómica**. Sin ella, la latencia de la llamada a Cloud KMS por operación hace inviable el sistema.
 
-> **Advertencia de plataforma:** Tink existe en Java, Go, Python, C++ y Objective-C. **La versión JavaScript/TypeScript fue descontinuada.** Para este producto es irrelevante porque el núcleo es Python 3.12, pero es un bloqueante real para cualquier componente auxiliar en Node.js, que necesitaría un *sidecar* en Go o Java, o implementar el sobre directamente contra la API de Cloud KMS.
+> **Advertencia de plataforma:** Tink existe en Java, Go, Python, C++ y Objective-C. **La versión JavaScript/TypeScript fue descontinuada.** Para este producto es irrelevante porque el núcleo es Python 3.14, pero es un bloqueante real para cualquier componente auxiliar en Node.js, que necesitaría un *sidecar* en Go o Java, o implementar el sobre directamente contra la API de Cloud KMS.
 
 ### 7.3 Firma de registro en el adaptador GCP
 

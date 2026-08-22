@@ -26,7 +26,7 @@
 | Terraform u OpenTofu | 1.6 | `terraform version` / `tofu version` |
 | CLI de AWS | 2.15 | `aws --version` |
 | Docker | 24 | `docker --version` |
-| Python | 3.12 (3.11 admisible) | `python3 --version` |
+| Python | 3.14 (3.11 en adelante admisible) | `python3 --version` |
 | `jq` | 1.6 | `jq --version` |
 | `git` | 2.40 | `git --version` |
 
@@ -567,7 +567,7 @@ aws ecr get-login-password --region "$OG_REGION" --profile "$OG_PROFILE" \
 # 2. Construcción, etiquetada por commit — nunca por 'latest'
 export OG_TAG=$(git rev-parse --short HEAD)
 docker build -f deploy/aws/Dockerfile.worker \
-  --build-arg PY_VERSION=3.12 \
+  --build-arg PY_VERSION=3.14 \
   -t "${OG_ECR}/og-${OG_ENV}-worker:${OG_TAG}" .
 
 # 3. Publicación

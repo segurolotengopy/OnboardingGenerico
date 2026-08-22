@@ -172,7 +172,7 @@ Ordenadas por impacto sobre el producto, no por severidad técnica abstracta. El
 | El análisis de fuga de frecuencia del índice pasa a ser responsabilidad propia | Se aplican las mismas fórmulas de dimensionado y las mismas exclusiones de campos de baja cardinalidad |
 | La inmutabilidad de la longitud del índice **no está impuesta por ninguna biblioteca** | Se impone por proceso: ADR más prueba que verifica la longitud configurada |
 | La caché de material criptográfico hay que implementarla | Con carga atómica; existe un problema de rendimiento conocido del Envelope AEAD de Tink sobre Cloud KMS por la latencia por operación |
-| Tink no tiene versión JavaScript/TypeScript mantenida | Irrelevante aquí (Python 3.12), pero bloqueante para componentes auxiliares en Node.js |
+| Tink no tiene versión JavaScript/TypeScript mantenida | Irrelevante aquí (Python 3.14), pero bloqueante para componentes auxiliares en Node.js |
 | La ventana de destrucción de clave difiere | AWS: 7–30 días, mínimo 7. GCP: 30 días por defecto, configurable. El SLA de borrado se fija por el mayor |
 
 ### 5.5 🟡 Brecha 5 — Autorizador de código arbitrario

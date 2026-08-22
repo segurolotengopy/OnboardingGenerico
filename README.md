@@ -112,7 +112,7 @@ Tres reglas estructurales gobiernan el diseño y explican casi todo lo demás:
 
 ## Arranque rápido
 
-Requiere Python 3.12 (el código es compatible con 3.11). No hace falta ninguna nube para ejecutar el núcleo y las pruebas: los adaptadores en memoria implementan todos los puertos.
+Requiere Python 3.14 (el código es compatible con 3.11 en adelante). No hace falta ninguna nube para ejecutar el núcleo y las pruebas: los adaptadores en memoria implementan todos los puertos.
 
 ```bash
 git clone https://github.com/segurolotengopy/OnboardingGenerico.git

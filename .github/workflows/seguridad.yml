@@ -44,7 +44,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v7
-        with: { python-version: "3.12" }
+        with: { python-version: "3.14" }
       # El formateador SARIF de bandit vive en el extra `sarif`; sin él,
       # `-f sarif` es una opción inválida y no se genera ningún informe.
       - run: pip install "bandit[toml,sarif]" ruff
@@ -69,7 +69,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v7
-        with: { python-version: "3.12" }
+        with: { python-version: "3.14" }
       - run: |
           pip install pip-audit
           pip install -e ".[dev,api]"
@@ -91,7 +91,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v7
-        with: { python-version: "3.12" }
+        with: { python-version: "3.14" }
       - run: |
           pip install pip-licenses
           pip install -e ".[dev,api]"
