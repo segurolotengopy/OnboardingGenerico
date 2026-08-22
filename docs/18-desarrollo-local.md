@@ -60,7 +60,7 @@ graph LR
 git clone https://github.com/segurolotengopy/OnboardingGenerico.git
 cd OnboardingGenerico
 
-python3.12 -m venv .venv
+python3.14 -m venv .venv
 source .venv/bin/activate     # Windows: .venv\Scripts\activate
 
 pip install --upgrade pip

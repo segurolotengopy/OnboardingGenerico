@@ -38,7 +38,7 @@
 | Terraform u OpenTofu | 1.6 |
 | `gcloud` | 480 |
 | Docker | 24 |
-| Python | 3.12 (3.11 admisible) |
+| Python | 3.14 (3.11 en adelante admisible) |
 
 ```bash
 gcloud version

@@ -13,7 +13,7 @@ El formato es **Michael Nygard extendido**: a la plantilla original (Contexto / 
 | [0000](0000-plantilla.md) | Plantilla | — | 2026-08-21 | Proceso |
 | [0001](0001-arquitectura-hexagonal-multinube.md) | Arquitectura hexagonal multinube con AWS de referencia | Aceptada | 2026-08-21 | Arquitectura |
 | [0002](0002-terraform-como-iac-principal.md) | Terraform/OpenTofu como IaC principal | Aceptada | 2026-08-21 | Infraestructura |
-| [0003](0003-python-312-como-runtime-principal.md) | Python 3.12 como runtime principal | Aceptada | 2026-08-21 | Plataforma |
+| [0003](0003-python-312-como-runtime-principal.md) | Python 3.12 como runtime principal | Superada por [0016](0016-python-314-como-runtime-principal.md) | 2026-08-21 | Plataforma |
 | [0004](0004-orquestacion-hibrida-standard-express.md) | Orquestación híbrida Standard + Express anidados | Aceptada | 2026-08-21 | Orquestación |
 | [0005](0005-aislamiento-multitenant-en-capas.md) | Aislamiento multi-tenant en capas con criptografía como control primario | Aceptada | 2026-08-21 | Seguridad |
 | [0006](0006-hierarchical-keyring-en-lugar-de-cachingcryptomaterialsmanager.md) | Hierarchical keyring en lugar de `CachingCryptoMaterialsManager` | Aceptada | 2026-08-21 | Criptografía |
@@ -26,6 +26,7 @@ El formato es **Michael Nygard extendido**: a la plantilla original (Contexto / 
 | [0013](0013-residencia-de-datos-y-regionalizacion.md) | Residencia de datos y regionalización UE/LATAM | Aceptada | 2026-08-21 | Cumplimiento |
 | [0014](0014-el-middleware-es-encargado-del-tratamiento.md) | El middleware es encargado del tratamiento | Aceptada | 2026-08-21 | Cumplimiento |
 | [0015](0015-cadena-de-auditoria-con-hash-encadenado.md) | Cadena de auditoría con hash encadenado y almacenamiento WORM | Aceptada | 2026-08-21 | Auditoría |
+| [0016](0016-python-314-como-runtime-principal.md) | Python 3.14 como runtime principal | Aceptada | 2026-08-22 | Plataforma |
 
 ## Reglas del proceso
 

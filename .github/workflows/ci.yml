@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  PYTHON_VERSION: "3.12"
+  PYTHON_VERSION: "3.14"
 
 jobs:
   calidad:
@@ -43,7 +43,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ["3.11", "3.12"]
+        python: ["3.11", "3.12", "3.14"]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v7
@@ -58,7 +58,7 @@ jobs:
       - name: Prueba de humo sin dependencias
         run: PYTHONPATH=src python tests/run_smoke.py
       - name: Publicar cobertura
-        if: matrix.python == '3.12'
+        if: matrix.python == '3.14'
         uses: actions/upload-artifact@v7
         with:
           name: coverage
@@ -70,7 +70,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v7
-        with: { python-version: "3.12" }
+        with: { python-version: "3.14" }
       - name: El núcleo no debe importar SDK de nube
         run: |
           # Esta comprobación es el guardián del diseño hexagonal. Si falla, el
@@ -183,7 +183,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v7
-        with: { python-version: "3.12" }
+        with: { python-version: "3.14" }
       - run: pip install check-jsonschema
       - name: Esquemas JSON
         run: check-jsonschema --check-metaschema api/schemas/*.json

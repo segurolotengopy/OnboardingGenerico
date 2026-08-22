@@ -2,10 +2,17 @@
 
 | Campo | Valor |
 |---|---|
-| Estado | Aceptada |
+| Estado | **Superada por [ADR-0016](0016-python-314-como-runtime-principal.md)** |
 | Fecha | 2026-08-21 |
 | Decisores | Arquitectura de plataforma |
 | Documentos relacionados | [ADR-0001](0001-arquitectura-hexagonal-multinube.md) · [ADR-0008](0008-ocr-generico-mas-llm-en-lugar-de-analyzeid.md) · [08 — IA y extracción semántica](../08-ia-y-extraccion-semantica.md) · [09 — Biometría y liveness](../09-biometria-y-liveness.md) · [18 — Desarrollo local](../18-desarrollo-local.md) |
+
+> **Este ADR fue superado el 2026-08-22 por [ADR-0016](0016-python-314-como-runtime-principal.md).**
+> Su decisión sobre el **lenguaje** sigue vigente y ADR-0016 la mantiene sin cambios: el núcleo
+> y los adaptadores siguen siendo Python por las razones que se argumentan aquí. Lo único que
+> ADR-0016 cambia es la **versión**, de 3.12 a 3.14. Se conserva este documento porque el
+> razonamiento sobre el lenguaje, las opciones descartadas y la refutación de las cifras del
+> spec original siguen siendo la referencia.
 
 ## Contexto
 
