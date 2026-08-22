@@ -16,7 +16,7 @@ variable "location" {
 
 variable "tenants" {
   description = "Mapa de tenant_id a sus atributos. Se crea una llave por entrada. La clave del mapa es el valor que viaja como Associated Data del cifrado de sobre."
-  type        = map(object({
+  type = map(object({
     tier             = optional(string, "standard")
     protection_level = optional(string, null)
   }))

@@ -23,8 +23,9 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from ..domain.enums import (
     ArtifactSlot,
@@ -42,7 +43,9 @@ KIND: str = "FlowSpec"
 
 _SEMVER_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 _STEP_ID_RE = re.compile(r"^[a-z][a-z0-9_]{1,63}$")
-_CAPABILITY_RE = re.compile(r"^(?P<id>[a-z][a-z0-9._]*\.v\d+)(?:@(?P<range>[\^~]?\d+\.\d+(?:\.\d+)?))?$")
+_CAPABILITY_RE = re.compile(
+    r"^(?P<id>[a-z][a-z0-9._]*\.v\d+)(?:@(?P<range>[\^~]?\d+\.\d+(?:\.\d+)?))?$"
+)
 
 
 def _require(data: Mapping[str, Any], key: str, path: str, expected: str) -> Any:
@@ -109,14 +112,19 @@ class CapabilityRef:
     version_range: str = ""
 
     def __str__(self) -> str:
-        return f"{self.capability}@{self.version_range}" if self.version_range else str(self.capability)
+        return (
+            f"{self.capability}@{self.version_range}"
+            if self.version_range
+            else str(self.capability)
+        )
 
     @classmethod
     def parse(cls, raw: str, path: str) -> CapabilityRef:
         match = _CAPABILITY_RE.match(raw)
         if match is None:
             raise SpecValidationError(
-                "referencia de capacidad mal formada; se espera 'ocr.document.v1' u 'ocr.document.v1@^1.4'",
+                "referencia de capacidad mal formada; se espera "
+                "'ocr.document.v1' u 'ocr.document.v1@^1.4'",
                 check="V1",
                 path=path,
             )
@@ -162,7 +170,9 @@ class RetryPolicy:
             raise SpecValidationError(
                 "'jitter' debe ser 'full', 'equal' o 'none'", check="V1", path=f"{path}.jitter"
             )
-        return cls(max_attempts=max_attempts, base_ms=int(raw.get("base_ms", 200)), jitter=str(jitter))
+        return cls(
+            max_attempts=max_attempts, base_ms=int(raw.get("base_ms", 200)), jitter=str(jitter)
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -178,7 +188,9 @@ class ArtifactSpec:
     @classmethod
     def parse(cls, raw: Any, path: str) -> ArtifactSpec:
         _require_type(raw, dict, path, "un objeto de artefacto")
-        slot = _parse_enum(ArtifactSlot, _require(raw, "slot", path, "ranura del artefacto"), f"{path}.slot")
+        slot = _parse_enum(
+            ArtifactSlot, _require(raw, "slot", path, "ranura del artefacto"), f"{path}.slot"
+        )
         mime_types = _require_str_list(
             _require(raw, "mime_types", path, "lista de tipos MIME aceptados"), f"{path}.mime_types"
         )
@@ -249,6 +261,10 @@ class StepSpec:
             f"{path}.capability",
         )
         fallback_raw = raw.get("fallback_provider", ())
+        # Anotación explícita: sin ella mypy fija el tipo en la primera rama
+        # (`tuple[str]`, exactamente un elemento) y rechaza la lista de la
+        # segunda. La lista de respaldo tiene longitud arbitraria.
+        fallback: tuple[str, ...]
         if isinstance(fallback_raw, str):
             fallback = (fallback_raw,)
         else:
@@ -308,7 +324,9 @@ class DecisionRule:
         _require_type(raw, dict, path, "un objeto de regla")
         return cls(
             when=str(_require(raw, "when", path, "condición de la regla")),
-            then=_parse_enum(DecisionOutcome, _require(raw, "then", path, "veredicto"), f"{path}.then"),
+            then=_parse_enum(
+                DecisionOutcome, _require(raw, "then", path, "veredicto"), f"{path}.then"
+            ),
             reason=str(_require(raw, "reason", path, "código de motivo estable")),
         )
 
@@ -332,9 +350,12 @@ class DecisionPolicy:
             _require(raw, "default", path, "veredicto por defecto (la política debe ser total)"),
             f"{path}.default",
         )
-        rules_raw = _require_type(raw.get("rules", []), list, f"{path}.rules", "una lista de reglas")
+        rules_raw = _require_type(
+            raw.get("rules", []), list, f"{path}.rules", "una lista de reglas"
+        )
         rules = tuple(
-            DecisionRule.parse(item, f"{path}.rules[{index}]") for index, item in enumerate(rules_raw)
+            DecisionRule.parse(item, f"{path}.rules[{index}]")
+            for index, item in enumerate(rules_raw)
         )
         return cls(issuer=issuer, default_outcome=default_outcome, rules=rules)
 
@@ -355,7 +376,8 @@ class ResolutionSpec:
             _require(raw, "countries", path, "países cubiertos o ['*']"), f"{path}.countries"
         )
         documents = _require_str_list(
-            _require(raw, "document_types", path, "tipos de documento o ['*']"), f"{path}.document_types"
+            _require(raw, "document_types", path, "tipos de documento o ['*']"),
+            f"{path}.document_types",
         )
         tiers = _require_str_list(raw.get("tiers", ["IAL2"]), f"{path}.tiers")
         if not countries or not documents:
@@ -371,10 +393,10 @@ class ResolutionSpec:
                 )
         priority = raw.get("priority", 0)
         if not isinstance(priority, int) or isinstance(priority, bool):
-            raise SpecValidationError("'priority' debe ser un entero", check="V1", path=f"{path}.priority")
-        return cls(
-            countries=countries, document_types=documents, tiers=tiers, priority=priority
-        )
+            raise SpecValidationError(
+                "'priority' debe ser un entero", check="V1", path=f"{path}.priority"
+            )
+        return cls(countries=countries, document_types=documents, tiers=tiers, priority=priority)
 
     @property
     def specificity(self) -> int:
@@ -424,9 +446,7 @@ class FlowSpec:
         for candidate in self.steps:
             if candidate.step_id == step_id:
                 return candidate
-        raise SpecValidationError(
-            f"paso inexistente '{step_id}'", check="V4", path="steps"
-        )
+        raise SpecValidationError(f"paso inexistente '{step_id}'", check="V4", path="steps")
 
     @property
     def step_ids(self) -> tuple[str, ...]:
@@ -458,7 +478,10 @@ class FlowSpec:
             )
 
         metadata = _require_type(
-            _require(document, "metadata", "$", "metadatos de la spec"), dict, "$.metadata", "un objeto"
+            _require(document, "metadata", "$", "metadatos de la spec"),
+            dict,
+            "$.metadata",
+            "un objeto",
         )
         name = str(_require(metadata, "name", "$.metadata", "nombre de la spec"))
         version = str(_require(metadata, "version", "$.metadata", "versión semver"))
@@ -512,7 +535,8 @@ class FlowSpec:
             ),
             steps=steps,
             decision_policy=DecisionPolicy.parse(
-                _require(document, "decision_policy", "$", "política de veredicto"), "$.decision_policy"
+                _require(document, "decision_policy", "$", "política de veredicto"),
+                "$.decision_policy",
             ),
             retention_inherits_from=str(retention.get("inherits_from", "tenant")),
             content_hash=compute_content_hash(document),
@@ -536,7 +560,9 @@ def compute_content_hash(document: Mapping[str, Any]) -> str:
     """Hash de contenido de la spec, base de la inmutabilidad por versión."""
     import hashlib
 
-    canonical = json.dumps(document, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str)
+    canonical = json.dumps(
+        document, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str
+    )
     return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 

@@ -25,7 +25,6 @@ from onboarding_generico.domain.value_objects import (
 )
 from onboarding_generico.errors import ValidationError
 
-
 # --------------------------------------------------------------------------
 # Normalización
 # --------------------------------------------------------------------------
@@ -101,9 +100,7 @@ def test_from_mapping_unknown_document_type_is_unknown_not_error() -> None:
 
 
 def test_is_expired_and_age_at() -> None:
-    claims = IdentityClaimSet.create(
-        birth_date=date(1990, 6, 15), expiry_date=date(2024, 1, 1)
-    )
+    claims = IdentityClaimSet.create(birth_date=date(1990, 6, 15), expiry_date=date(2024, 1, 1))
     assert claims.is_expired(as_of=date(2026, 1, 1)) is True
     assert claims.is_expired(as_of=date(2023, 1, 1)) is False
     assert claims.age_at(date(2026, 6, 14)) == 35

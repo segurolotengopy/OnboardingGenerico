@@ -10,7 +10,7 @@ GCP: solo hay notificaciones Pub/Sub y el rotador lo escribe el equipo.
 from __future__ import annotations
 
 import abc
-from typing import Mapping
+from collections.abc import Mapping
 
 
 class SecretsProvider(abc.ABC):

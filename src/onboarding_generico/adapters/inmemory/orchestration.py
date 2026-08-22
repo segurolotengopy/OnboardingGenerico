@@ -17,8 +17,9 @@ from __future__ import annotations
 import threading
 import uuid
 from collections import Counter
-from datetime import datetime, timedelta, timezone
-from typing import Any, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from ...domain.enums import DecisionOutcome
 from ...domain.value_objects import ObjectRef, SessionId, TenantId, utc_now
@@ -32,7 +33,7 @@ from ...ports.telemetry import FORBIDDEN_DIMENSIONS, TelemetryPort
 class InMemorySaga(OnboardingSagaPort):
     """Saga en memoria con reanudación idempotente."""
 
-    __slots__ = ("_executions", "_tokens", "_consumed", "_lock", "_counter")
+    __slots__ = ("_consumed", "_counter", "_executions", "_lock", "_tokens")
 
     def __init__(self) -> None:
         self._executions: dict[str, dict[str, Any]] = {}
@@ -84,7 +85,7 @@ class InMemorySaga(OnboardingSagaPort):
             value=token_value,
             session_id=handle.session_id,
             tenant_id=handle.tenant_id,
-            expires_at=(datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)).isoformat(),
+            expires_at=(datetime.now(UTC) + timedelta(seconds=ttl_seconds)).isoformat(),
             reason=reason,
         )
 
@@ -185,7 +186,7 @@ class InMemoryHumanReview(HumanReviewPort):
     Vertex AI Data Labeling el 03/10/2024).
     """
 
-    __slots__ = ("_cases", "_resolutions", "_lock", "_counter")
+    __slots__ = ("_cases", "_counter", "_lock", "_resolutions")
 
     def __init__(self) -> None:
         self._cases: dict[tuple[str, str], ReviewCase] = {}
@@ -329,7 +330,7 @@ class InMemoryHumanReview(HumanReviewPort):
 class InMemoryEventBus(EventBusPort):
     """Bus de eventos con deduplicación por `event_id` y orden por secuencia."""
 
-    __slots__ = ("_events", "_seen", "_lock")
+    __slots__ = ("_events", "_lock", "_seen")
 
     def __init__(self) -> None:
         self._events: list[IntegrationEvent] = []
@@ -367,7 +368,7 @@ class InMemoryEventBus(EventBusPort):
 class InMemoryTelemetry(TelemetryPort):
     """Telemetría en memoria que **rechaza** dimensiones prohibidas."""
 
-    __slots__ = ("_counters", "_observations", "_gauges", "_lock")
+    __slots__ = ("_counters", "_gauges", "_lock", "_observations")
 
     def __init__(self) -> None:
         self._counters: Counter[str] = Counter()
@@ -389,17 +390,23 @@ class InMemoryTelemetry(TelemetryPort):
         suffix = ",".join(f"{k}={dimensions[k]}" for k in sorted(dimensions))
         return f"{name}{{{suffix}}}"
 
-    def increment(self, name: str, *, value: int = 1, dimensions: Mapping[str, str] | None = None) -> None:
+    def increment(
+        self, name: str, *, value: int = 1, dimensions: Mapping[str, str] | None = None
+    ) -> None:
         key = self._key(name, dimensions)
         with self._lock:
             self._counters[key] += value
 
-    def observe(self, name: str, value: float, *, dimensions: Mapping[str, str] | None = None) -> None:
+    def observe(
+        self, name: str, value: float, *, dimensions: Mapping[str, str] | None = None
+    ) -> None:
         key = self._key(name, dimensions)
         with self._lock:
             self._observations.setdefault(key, []).append(value)
 
-    def gauge(self, name: str, value: float, *, dimensions: Mapping[str, str] | None = None) -> None:
+    def gauge(
+        self, name: str, value: float, *, dimensions: Mapping[str, str] | None = None
+    ) -> None:
         key = self._key(name, dimensions)
         with self._lock:
             self._gauges[key] = value

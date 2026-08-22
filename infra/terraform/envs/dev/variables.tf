@@ -35,7 +35,7 @@ variable "cost_center" {
 
 variable "tenants" {
   description = "Mapa de tenant_id a sus atributos. Es la fuente de verdad del aprovisionamiento por tenant: llaves KMS, planes de uso, bases de datos dedicadas."
-  type        = map(object({
+  type = map(object({
     tier         = optional(string, "standard")
     jurisdiction = optional(string, "")
   }))
@@ -61,7 +61,7 @@ variable "aws_region" {
 variable "aws_private_subnets" {
   description = "Mapa de zona de disponibilidad a bloque CIDR de subred privada."
   type        = map(string)
-  default     = {
+  default = {
     "us-east-1a" = "10.60.1.0/24"
     "us-east-1b" = "10.60.2.0/24"
   }
@@ -81,7 +81,7 @@ variable "aws_artifacts_bucket_name" {
 
 variable "aws_zip_functions" {
   description = "Definicion de las funciones Lambda empaquetadas como zip. La clave del mapa se concatena al prefijo og-{env}-."
-  type        = map(object({
+  type = map(object({
     description             = string
     handler                 = string
     s3_key                  = string
@@ -97,7 +97,7 @@ variable "aws_zip_functions" {
 
 variable "aws_container_functions" {
   description = "Definicion de las funciones Lambda empaquetadas como imagen de contenedor. Se crea un repositorio de ECR por entrada."
-  type        = map(object({
+  type = map(object({
     description             = string
     image_tag               = optional(string, "v1")
     architecture            = optional(string, "x86_64")
@@ -114,7 +114,7 @@ variable "aws_container_functions" {
 
 variable "aws_tenant_usage_plans" {
   description = "Planes de uso de API Gateway por tenant, con cuota y throttling diferenciados por tier."
-  type        = map(object({
+  type = map(object({
     tier         = optional(string, "standard")
     rate_limit   = optional(number, 20)
     burst_limit  = optional(number, 40)
@@ -178,7 +178,7 @@ variable "gcp_jwks_uri" {
 
 variable "gcp_services" {
   description = "Definicion de los servicios de Cloud Run. Recuerde la relacion obligatoria entre CPU y memoria y que la concurrencia alta rompe los supuestos de una sesion de ONNX."
-  type        = map(object({
+  type = map(object({
     description           = string
     image_name            = string
     image_tag             = optional(string, "v1")
@@ -197,7 +197,7 @@ variable "gcp_services" {
     data_classification   = optional(string, "internal")
     invoker_members       = optional(list(string), [])
     environment           = optional(map(string), {})
-    secret_environment    = optional(map(object({
+    secret_environment = optional(map(object({
       secret  = string
       version = string
     })), {})
@@ -207,7 +207,7 @@ variable "gcp_services" {
 
 variable "gcp_jobs" {
   description = "Definicion de los jobs de Cloud Run para trabajo por lotes."
-  type        = map(object({
+  type = map(object({
     image_name            = string
     image_tag             = optional(string, "v1")
     cpu                   = optional(string, "1")

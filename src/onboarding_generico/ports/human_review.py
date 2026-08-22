@@ -17,9 +17,9 @@ El log de decisiones va a almacenamiento inmutable (**S3 Object Lock** o
 from __future__ import annotations
 
 import abc
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Mapping, Sequence
 
 from ..domain.enums import DecisionOutcome
 from ..domain.value_objects import ObjectRef, SessionId, TenantId

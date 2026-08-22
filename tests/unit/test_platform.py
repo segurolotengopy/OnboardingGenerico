@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import io
 import json
 import logging
@@ -35,7 +36,6 @@ from onboarding_generico.observability import (
     new_correlation_id,
     redact,
 )
-
 
 # --------------------------------------------------------------------------
 # Configuración
@@ -99,12 +99,12 @@ def test_gcp_requires_project() -> None:
 
 
 def test_supported_providers_are_the_three_expected() -> None:
-    assert SUPPORTED_CLOUD_PROVIDERS == {"inmemory", "aws", "gcp"}
+    assert {"inmemory", "aws", "gcp"} == SUPPORTED_CLOUD_PROVIDERS
 
 
 def test_settings_are_immutable() -> None:
     settings = Settings()
-    with pytest.raises(Exception):
+    with pytest.raises(dataclasses.FrozenInstanceError):
         settings.environment = "otro"  # type: ignore[misc]
 
 

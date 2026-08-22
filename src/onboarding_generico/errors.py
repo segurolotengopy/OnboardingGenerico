@@ -10,7 +10,8 @@ identificadores técnicos y nombres de campo, nunca a sus valores.
 
 from __future__ import annotations
 
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 
 class OnboardingError(Exception):
@@ -301,33 +302,33 @@ class IntegrityError(OnboardingError):
 
 
 __all__ = [
-    "OnboardingError",
-    "ConfigurationError",
-    "MissingDependencyError",
-    "ValidationError",
-    "SpecValidationError",
-    "NoApplicableFlowSpecError",
+    "FALLBACK_TRIGGERS",
     "AmbiguousFlowSpecError",
+    "AuditChainError",
+    "AuthorizationError",
     "CapabilityNotProvisionedError",
-    "DomainError",
-    "InvalidStateTransitionError",
-    "SessionNotFoundError",
     "ConcurrencyError",
-    "LockAcquisitionError",
-    "MrzParseError",
-    "MrzCheckDigitError",
+    "ConfigurationError",
     "CryptoError",
     "DecryptionError",
-    "KeyDestroyedError",
-    "TenantIsolationError",
-    "AuthorizationError",
-    "AuditChainError",
-    "ProviderError",
-    "ProviderUnavailableError",
-    "ProviderThrottledError",
-    "ProviderContractViolationError",
+    "DomainError",
     "InconclusiveResultError",
-    "ObjectNotFoundError",
     "IntegrityError",
-    "FALLBACK_TRIGGERS",
+    "InvalidStateTransitionError",
+    "KeyDestroyedError",
+    "LockAcquisitionError",
+    "MissingDependencyError",
+    "MrzCheckDigitError",
+    "MrzParseError",
+    "NoApplicableFlowSpecError",
+    "ObjectNotFoundError",
+    "OnboardingError",
+    "ProviderContractViolationError",
+    "ProviderError",
+    "ProviderThrottledError",
+    "ProviderUnavailableError",
+    "SessionNotFoundError",
+    "SpecValidationError",
+    "TenantIsolationError",
+    "ValidationError",
 ]

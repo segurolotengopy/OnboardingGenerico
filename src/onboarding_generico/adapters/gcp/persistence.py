@@ -29,8 +29,9 @@ Spanner (el único con change streams reales: orden garantizado y replay de
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Any, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime
+from typing import Any
 
 from ...config import Settings
 from ...domain.enums import Capability, SessionState
@@ -121,9 +122,9 @@ class FirestoreSessionRepository(SessionRepository):
 
         transaction = db.transaction()
 
-        @transaction  # type: ignore[misc]
+        @transaction
         def _write(tx: Any) -> None:
-            from ...errors import ConcurrencyError  # noqa: PLC0415
+            from ...errors import ConcurrencyError
 
             if expected_version is not None:
                 snapshot = document.get(transaction=tx)
@@ -165,7 +166,9 @@ class FirestoreSessionRepository(SessionRepository):
             "subcolección) o una proyección ligera."
         )
 
-    def find_by_external_ref(self, tenant_id: TenantId, external_ref: str) -> OnboardingSession | None:
+    def find_by_external_ref(
+        self, tenant_id: TenantId, external_ref: str
+    ) -> OnboardingSession | None:
         db = self._db()
         results = list(
             _tenant_root(db, tenant_id)
@@ -225,11 +228,7 @@ class FirestoreSessionRepository(SessionRepository):
     def list_session_ids(self, tenant_id: TenantId, *, limit: int = 1000) -> tuple[SessionId, ...]:
         db = self._db()
         documents = (
-            _tenant_root(db, tenant_id)
-            .collection("sessions")
-            .select([])
-            .limit(limit)
-            .stream()
+            _tenant_root(db, tenant_id).collection("sessions").select([]).limit(limit).stream()
         )
         return tuple(SessionId(document.id) for document in documents)
 
@@ -290,22 +289,24 @@ class FirestoreCapabilityRegistry(CapabilityRegistryRepository):
         results = []
         for document in query.stream():
             data = document.to_dict() or {}
-            if document_type and document_type not in data.get("document_types", []):
-                if "*" not in data.get("document_types", []):
-                    continue
+            declared_types = data.get("document_types", [])
+            if document_type and document_type not in declared_types and "*" not in declared_types:
+                continue
             results.append(ProviderRef(document.id, str(data.get("version", "unknown"))))
         return tuple(results)
 
     def is_registered(self, capability: Capability, provider_id: str) -> bool:
-        return (
+        # `.exists` llega sin tipar desde el SDK de Firestore: se estrecha a
+        # bool aquí para no propagar `Any` fuera del adaptador.
+        snapshot = (
             self._db()
             .collection("catalog")
             .document(str(capability))
             .collection("providers")
             .document(provider_id)
             .get()
-            .exists
         )
+        return bool(snapshot.exists)
 
     def is_active(self, capability: Capability, provider_id: str) -> bool:
         snapshot = (
@@ -374,7 +375,7 @@ class FirestoreMutexLock(MutexLock):
         return _tenant_root(db, tenant_id).collection("locks").document(resource)
 
     def acquire(self, tenant_id: TenantId, resource: str, *, ttl_seconds: int = 60) -> str:
-        import time  # noqa: PLC0415
+        import time
 
         now = int(time.time())
         token = f"{now}-{tenant_id.value}"
@@ -398,11 +399,12 @@ class FirestoreMutexLock(MutexLock):
         return True
 
     def is_held(self, tenant_id: TenantId, resource: str) -> bool:
-        import time  # noqa: PLC0415
+        import time
 
         snapshot = self._document(tenant_id, resource).get()
         return bool(
-            snapshot.exists and int((snapshot.to_dict() or {}).get("expires_at", 0)) > int(time.time())
+            snapshot.exists
+            and int((snapshot.to_dict() or {}).get("expires_at", 0)) > int(time.time())
         )
 
 
@@ -422,14 +424,16 @@ class FirestoreIdempotencyStore(IdempotencyStore):
         db = firestore_client(self._settings.gcp_project)
         return _tenant_root(db, tenant_id).collection("idempotency").document(f"{scope}--{key}")
 
-    def reserve(self, tenant_id: TenantId, scope: str, key: str, *, ttl_seconds: int = 86_400) -> bool:
-        from datetime import timedelta, timezone  # noqa: PLC0415
+    def reserve(
+        self, tenant_id: TenantId, scope: str, key: str, *, ttl_seconds: int = 86_400
+    ) -> bool:
+        from datetime import timedelta
 
         try:
             self._document(tenant_id, scope, key).create(
-                {"expires_at": datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)}
+                {"expires_at": datetime.now(UTC) + timedelta(seconds=ttl_seconds)}
             )
-        except Exception:  # noqa: BLE001 - AlreadyExists
+        except Exception:
             return False
         return True
 
@@ -456,7 +460,7 @@ class FirestoreFlowSpecRepository(FlowSpecRepository):
         self._settings = settings
 
     def publish(self, document: Mapping[str, Any]) -> str:
-        from ...composer.spec import FlowSpec  # noqa: PLC0415
+        from ...composer.spec import FlowSpec
 
         spec = FlowSpec.parse(document)
         db = firestore_client(self._settings.gcp_project)
@@ -487,7 +491,7 @@ class FirestoreFlowSpecRepository(FlowSpecRepository):
         )
 
     def list_versions(self, key: str) -> tuple[str, ...]:
-        from ...composer.registry import parse_semver  # noqa: PLC0415
+        from ...composer.registry import parse_semver
 
         db = firestore_client(self._settings.gcp_project)
         versions = [
@@ -513,9 +517,7 @@ class GcsObjectStorage(ObjectStorage):
         return cleaned if cleaned.startswith(prefix) else prefix + cleaned
 
     def _bucket(self) -> Any:
-        return storage_client(self._settings.gcp_project).bucket(  # type: ignore[attr-defined]
-            self._settings.artifact_bucket
-        )
+        return storage_client(self._settings.gcp_project).bucket(self._settings.artifact_bucket)
 
     def put(
         self,
@@ -526,7 +528,7 @@ class GcsObjectStorage(ObjectStorage):
         content_type: str = "application/octet-stream",
         metadata: Mapping[str, str] | None = None,
     ) -> ObjectRef:
-        import hashlib  # noqa: PLC0415
+        import hashlib
 
         scoped = self._scoped(tenant_id, key)
         blob = self._bucket().blob(scoped)
@@ -542,7 +544,7 @@ class GcsObjectStorage(ObjectStorage):
         )
 
     def get(self, tenant_id: TenantId, ref: ObjectRef) -> bytes:
-        import hashlib  # noqa: PLC0415
+        import hashlib
 
         from ...errors import IntegrityError, ObjectNotFoundError, TenantIsolationError
 
@@ -574,21 +576,29 @@ class GcsObjectStorage(ObjectStorage):
         content_type: str = "application/octet-stream",
         max_bytes: int | None = None,
     ) -> str:
-        from datetime import timedelta  # noqa: PLC0415
+        from datetime import timedelta
 
-        url: str = self._bucket().blob(self._scoped(tenant_id, key)).generate_signed_url(
-            version="v4",
-            expiration=timedelta(seconds=ttl_seconds),
-            method="PUT",
-            content_type=content_type,
+        url: str = (
+            self._bucket()
+            .blob(self._scoped(tenant_id, key))
+            .generate_signed_url(
+                version="v4",
+                expiration=timedelta(seconds=ttl_seconds),
+                method="PUT",
+                content_type=content_type,
+            )
         )
         return url
 
     def presign_get(self, tenant_id: TenantId, ref: ObjectRef, *, ttl_seconds: int = 900) -> str:
-        from datetime import timedelta  # noqa: PLC0415
+        from datetime import timedelta
 
-        url: str = self._bucket().blob(ref.key).generate_signed_url(
-            version="v4", expiration=timedelta(seconds=ttl_seconds), method="GET"
+        url: str = (
+            self._bucket()
+            .blob(ref.key)
+            .generate_signed_url(
+                version="v4", expiration=timedelta(seconds=ttl_seconds), method="GET"
+            )
         )
         return url
 
@@ -634,16 +644,17 @@ class TinkKeyProvider(KeyProvider):
         return f"{self._settings.kms_key_alias}/cryptoKeys/tenant-{tenant_id.value}"
 
     def data_key_for(self, tenant_id: TenantId, *, purpose: str = "field") -> tuple[bytes, bytes]:
-        import os  # noqa: PLC0415
+        import os
 
         plaintext = os.urandom(32)
+        # El AAD de Cloud KMS: el tenant va aquí, igual que en el
+        # EncryptionContext de AWS KMS.
+        aad = f"tenant={tenant_id.value}|purpose={purpose}".encode()
         response = kms_client().encrypt(
             request={
                 "name": self._key_name(tenant_id),
                 "plaintext": plaintext,
-                # El AAD de Cloud KMS: el tenant va aquí, igual que en el
-                # EncryptionContext de AWS KMS.
-                "additional_authenticated_data": f"tenant={tenant_id.value}|purpose={purpose}".encode(),
+                "additional_authenticated_data": aad,
             }
         )
         return plaintext, bytes(response.ciphertext)
@@ -659,7 +670,7 @@ class TinkKeyProvider(KeyProvider):
                     ),
                 }
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise DecryptionError(
                 "no se pudo desenvolver la clave para este tenant", tenant_id=tenant_id.value
             ) from exc
@@ -709,7 +720,7 @@ class TinkFieldCipher(FieldCipher):
     por tenant, asumiendo el análisis de fuga de frecuencia.
     """
 
-    __slots__ = ("_settings", "_keys")
+    __slots__ = ("_keys", "_settings")
 
     def __init__(self, settings: Settings, key_provider: KeyProvider) -> None:
         self._settings = settings
@@ -730,11 +741,11 @@ class TinkFieldCipher(FieldCipher):
         )
 
     def beacon(self, tenant_id: TenantId, field_name: str, value: str) -> str:
-        import hashlib  # noqa: PLC0415
-        import hmac  # noqa: PLC0415
+        import hashlib
+        import hmac
 
         key = self._keys.derive_key(tenant_id, purpose="beacon")
-        digest = hmac.new(key, f"{field_name}={value}".encode("utf-8"), hashlib.sha256).hexdigest()
+        digest = hmac.new(key, f"{field_name}={value}".encode(), hashlib.sha256).hexdigest()
         return f"{tenant_id.value}#{digest[:32]}"
 
 
@@ -756,12 +767,14 @@ class SecretManagerProvider(SecretsProvider):
             response = secret_manager_client().access_secret_version(
                 request={"name": f"projects/{project}/secrets/{name}/versions/{version}"}
             )
-        except Exception as exc:  # noqa: BLE001
-            raise ConfigurationError("el secreto no existe o no es accesible", secret_name=name) from exc
+        except Exception as exc:
+            raise ConfigurationError(
+                "el secreto no existe o no es accesible", secret_name=name
+            ) from exc
         return str(response.payload.data.decode("utf-8"))
 
     def get_secret_json(self, name: str, *, version: str = "latest") -> Mapping[str, object]:
-        import json  # noqa: PLC0415
+        import json
 
         parsed = json.loads(self.get_secret(name, version=version))
         if not isinstance(parsed, dict):

@@ -8,9 +8,10 @@ que **no existe una instancia inválida**.
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Any, Mapping
+from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
 
 from ..errors import ValidationError
@@ -24,7 +25,7 @@ _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 def utc_now() -> datetime:
     """Instante actual en UTC. Único punto de lectura del reloj del dominio."""
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,7 +41,8 @@ class TenantId:
     def __post_init__(self) -> None:
         if not _TENANT_RE.match(self.value):
             raise ValidationError(
-                "tenant_id inválido: se esperan 2-63 caracteres [a-z0-9-] que empiecen por alfanumérico",
+                "tenant_id inválido: se esperan 2-63 caracteres [a-z0-9-] "
+                "que empiecen por alfanumérico",
                 field="tenant_id",
             )
 
@@ -50,7 +52,7 @@ class TenantId:
     @property
     def aad(self) -> bytes:
         """Bytes canónicos del AAD derivados del tenant."""
-        return f"tenant:{self.value}".encode("utf-8")
+        return f"tenant:{self.value}".encode()
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,7 +63,9 @@ class SessionId:
 
     def __post_init__(self) -> None:
         if not re.fullmatch(r"[0-9a-f]{32}", self.value):
-            raise ValidationError("session_id inválido: se espera UUID4 hex de 32 caracteres", field="session_id")
+            raise ValidationError(
+                "session_id inválido: se espera UUID4 hex de 32 caracteres", field="session_id"
+            )
 
     def __str__(self) -> str:
         return self.value
@@ -83,7 +87,9 @@ class SubjectRef:
 
     def __post_init__(self) -> None:
         if not 1 <= len(self.value) <= 128:
-            raise ValidationError("subject_ref debe tener entre 1 y 128 caracteres", field="subject_ref")
+            raise ValidationError(
+                "subject_ref debe tener entre 1 y 128 caracteres", field="subject_ref"
+            )
 
     def __str__(self) -> str:
         return self.value
@@ -97,7 +103,9 @@ class CountryCode:
 
     def __post_init__(self) -> None:
         if self.value != "*" and not _COUNTRY_RE.match(self.value):
-            raise ValidationError("country_code inválido: se espera ISO 3166-1 alfa-2 o '*'", field="country")
+            raise ValidationError(
+                "country_code inválido: se espera ISO 3166-1 alfa-2 o '*'", field="country"
+            )
 
     def __str__(self) -> str:
         return self.value
@@ -138,7 +146,9 @@ class ObjectRef:
                 bucket=self.bucket,
             )
         if not _SHA256_RE.match(self.sha256):
-            raise ValidationError("sha256 inválido: se esperan 64 hexadecimales en minúscula", field="sha256")
+            raise ValidationError(
+                "sha256 inválido: se esperan 64 hexadecimales en minúscula", field="sha256"
+            )
         if self.size_bytes < 0:
             raise ValidationError("size_bytes no puede ser negativo", field="size_bytes")
 
@@ -185,7 +195,9 @@ class Confidence:
 
     def __post_init__(self) -> None:
         if not 0.0 <= self.value <= 1.0:
-            raise ValidationError("la confianza debe estar en [0, 1]", field="confidence", value=self.value)
+            raise ValidationError(
+                "la confianza debe estar en [0, 1]", field="confidence", value=self.value
+            )
 
     def __float__(self) -> float:
         return self.value
@@ -334,7 +346,9 @@ class FlowSpecRef:
 
     def __post_init__(self) -> None:
         if not self.content_hash.startswith("sha256:"):
-            raise ValidationError("content_hash debe llevar el prefijo 'sha256:'", field="content_hash")
+            raise ValidationError(
+                "content_hash debe llevar el prefijo 'sha256:'", field="content_hash"
+            )
 
 
 __all__ = [

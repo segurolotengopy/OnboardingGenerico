@@ -82,9 +82,7 @@ def test_decrypting_with_another_context_fails(cipher: EnvelopeCipher, tenant: T
         cipher.decrypt(tenant, envelope, context={"field": "first_name"})
 
 
-def test_tampered_ciphertext_fails_authentication(
-    cipher: EnvelopeCipher, tenant: TenantId
-) -> None:
+def test_tampered_ciphertext_fails_authentication(cipher: EnvelopeCipher, tenant: TenantId) -> None:
     envelope = cipher.encrypt(tenant, b"valor original")
     tampered = Envelope(
         version=envelope.version,
@@ -372,9 +370,7 @@ def test_cached_key_provider_only_caches_deterministic_material(
     assert plain_a != plain_b
 
 
-def test_cached_key_provider_invalidates_on_shred(
-    keys: LocalKeyProvider, tenant: TenantId
-) -> None:
+def test_cached_key_provider_invalidates_on_shred(keys: LocalKeyProvider, tenant: TenantId) -> None:
     """Sin invalidar la caché, el borrado no sería efectivo hasta el TTL."""
     cached = CachedKeyProvider(keys)
     cached.derive_key(tenant, purpose="sign")

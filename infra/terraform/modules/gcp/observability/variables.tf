@@ -35,7 +35,7 @@ variable "enable_audit_config" {
 variable "audited_services" {
   description = "Servicios cuyos Data Access audit logs se habilitan cuando enable_audit_config es verdadero."
   type        = list(string)
-  default     = [
+  default = [
     "firestore.googleapis.com",
     "storage.googleapis.com",
     "cloudkms.googleapis.com",

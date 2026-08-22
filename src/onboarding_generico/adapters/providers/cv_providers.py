@@ -28,7 +28,8 @@ tamaño real del modelo y de la imagen, no por instrucciones vectoriales.
 
 from __future__ import annotations
 
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 from ...domain.value_objects import Confidence, ObjectRef, TenantId
 from ...errors import MissingDependencyError
@@ -45,7 +46,7 @@ EXTRA_CV: str = "cv"
 
 
 def _require(module_name: str, package_name: str, extra: str = EXTRA_CV) -> Any:
-    import importlib  # noqa: PLC0415
+    import importlib
 
     try:
         return importlib.import_module(module_name)
@@ -121,7 +122,7 @@ class InsightFaceMatch(FaceMatchPort):
     pesos antes de desplegar.
     """
 
-    __slots__ = ("_storage", "_model_path", "_session")
+    __slots__ = ("_model_path", "_session", "_storage")
 
     PROVIDER_ID = "insightface_match"
 
@@ -196,7 +197,7 @@ class TruForForgery(ForgeryDetectionPort):
     metadatos EXIF), con menor sensibilidad pero sin problema de licencia.
     """
 
-    __slots__ = ("_storage", "_model_path")
+    __slots__ = ("_model_path", "_storage")
 
     PROVIDER_ID = "trufor_forgery"
 
@@ -226,7 +227,7 @@ class TesseractOcr(OcrPort):
     servicios gestionados, y por eso no es proveedor primario.
     """
 
-    __slots__ = ("_storage", "_languages")
+    __slots__ = ("_languages", "_storage")
 
     PROVIDER_ID = "tesseract_ocr"
 
@@ -244,7 +245,7 @@ class TesseractOcr(OcrPort):
     ) -> OcrResult:
         pytesseract = _require("pytesseract", "pytesseract")
         pillow = _require("PIL.Image", "pillow")
-        import io  # noqa: PLC0415
+        import io
 
         raw = self._storage.get(tenant_id, ref)
         image = pillow.open(io.BytesIO(raw))

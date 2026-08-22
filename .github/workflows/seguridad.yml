@@ -19,46 +19,78 @@ jobs:
     name: Búsqueda de secretos
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with: { fetch-depth: 0 }
-      - uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Gitleaks sobre todo el historial
+        # Se escanea el repositorio completo en vez de un rango de commits. El
+        # rango incremental fallaba cuando incluía el commit raíz: no tiene padre,
+        # así que `<sha>^..` es una revisión inválida, git escribía en stderr y el
+        # escaneo abortaba sin revisar nada. El repositorio es pequeño, de modo que
+        # el escaneo completo cuesta segundos y además cubre commits anteriores.
+        # `--redact` impide que un hallazgo imprima el secreto en la bitácora.
+        run: |
+          docker run --rm \
+            --volume "${{ github.workspace }}:/repo" \
+            ghcr.io/gitleaks/gitleaks:v8.30.1 \
+            git /repo \
+              --redact=100 \
+              --verbose \
+              --no-banner \
+              --exit-code 1
 
   sast:
     name: Análisis estático
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v7
         with: { python-version: "3.12" }
-      - run: pip install bandit[toml] ruff
+      # El formateador SARIF de bandit vive en el extra `sarif`; sin él,
+      # `-f sarif` es una opción inválida y no se genera ningún informe.
+      - run: pip install "bandit[toml,sarif]" ruff
       - name: Bandit
-        run: bandit -r src/onboarding_generico -f sarif -o bandit.sarif || true
+        # `--exit-zero` neutraliza solo el código de salida por hallazgos, no los
+        # errores de invocación: si bandit no puede escribir el informe, el paso
+        # falla en vez de dejar el hueco que antes ocultaba `|| true`. Los
+        # hallazgos se revisan en el panel de Code Scanning.
+        run: bandit -r src/onboarding_generico -f sarif -o bandit.sarif --exit-zero
       - name: Reglas de seguridad de ruff
         run: ruff check --select S src
-      - uses: github/codeql-action/upload-sarif@v3
-        if: always()
+      - name: Publicar hallazgos de Bandit
+        # Si un fallo anterior impidió generar el informe, no se intenta subirlo:
+        # el error que importa ya se reportó en el paso que lo produjo.
+        if: always() && hashFiles('bandit.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
         with: { sarif_file: bandit.sarif }
 
   dependencias:
     name: Vulnerabilidades en dependencias
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v7
         with: { python-version: "3.12" }
       - run: |
           pip install pip-audit
           pip install -e ".[dev,api]"
-      - run: pip-audit --strict --desc
+      - name: Auditar dependencias de terceros
+        # `--skip-editable` excluye el propio paquete, instalado con `pip -e` y
+        # ausente de PyPI por construcción.
+        #
+        # Sin `--strict` a propósito: esa opción falla la auditoría ante
+        # CUALQUIER dependencia no recolectada, incluido el salto que
+        # `--skip-editable` provoca deliberadamente, de modo que ambas juntas
+        # fallan siempre ("distribution marked as editable"). No se pierde
+        # cobertura: pip-audit ya sale con código 1 cuando encuentra una
+        # vulnerabilidad, que es lo que este trabajo vigila.
+        run: pip-audit --desc --skip-editable
 
   licencias:
     name: Cumplimiento de licencias
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v7
         with: { python-version: "3.12" }
       - run: |
           pip install pip-licenses
@@ -81,7 +113,7 @@ jobs:
               sys.exit(1)
           print("Todas las licencias de dependencias son admisibles.")
           PY
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with: { name: inventario-de-licencias, path: licencias.json }
 
@@ -89,7 +121,7 @@ jobs:
     name: Análisis de infraestructura
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Checkov
         uses: bridgecrewio/checkov-action@master
         with:
@@ -98,6 +130,6 @@ jobs:
           output_format: cli,sarif
           output_file_path: console,checkov.sarif
           soft_fail: true
-      - uses: github/codeql-action/upload-sarif@v3
+      - uses: github/codeql-action/upload-sarif@v4
         if: always()
         with: { sarif_file: checkov.sarif }

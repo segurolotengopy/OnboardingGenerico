@@ -130,10 +130,10 @@ resource "google_iam_workload_identity_pool_provider" "oidc" {
   display_name                       = "Proveedor OIDC de tenants"
 
   attribute_mapping = {
-    "google.subject"    = "assertion.sub"
-    "attribute.tenant"  = "assertion.tenant_id"
-    "attribute.tier"    = "assertion.tenant_tier"
-    "attribute.aud"     = "assertion.aud"
+    "google.subject"   = "assertion.sub"
+    "attribute.tenant" = "assertion.tenant_id"
+    "attribute.tier"   = "assertion.tenant_tier"
+    "attribute.aud"    = "assertion.aud"
   }
 
   # La condicion de atributo es un filtro de admision: un token sin tenant_id

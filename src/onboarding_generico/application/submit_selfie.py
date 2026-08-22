@@ -16,8 +16,9 @@ Reglas que este caso de uso hace cumplir:
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Mapping
+from typing import TYPE_CHECKING, Any
 
 from ..domain.enums import (
     ArtifactSlot,
@@ -113,7 +114,9 @@ class SubmitSelfie:
             session = self._c.sessions.get(tenant_id, session_id)
 
             chain = AuditChain(
-                tenant_id.value, session_id.value, self._c.sessions.audit_trail(tenant_id, session_id)
+                tenant_id.value,
+                session_id.value,
+                self._c.sessions.audit_trail(tenant_id, session_id),
             )
             steps: dict[str, str] = {}
             evidences: list[Evidence] = []
@@ -127,8 +130,14 @@ class SubmitSelfie:
             grey_band = False
             if liveness.passed:
                 similarity, matched, grey_band, session = self._run_face_match(
-                    tenant_id, session, liveness.audited_image or selfie_ref, selfie_ref,
-                    steps, evidences, chain, command,
+                    tenant_id,
+                    session,
+                    liveness.audited_image or selfie_ref,
+                    selfie_ref,
+                    steps,
+                    evidences,
+                    chain,
+                    command,
                 )
             else:
                 _logger.warning(
@@ -243,8 +252,10 @@ class SubmitSelfie:
             return result.similarity, result.matched, grey_band, session
 
         provider = ProviderRef(result.provider_id, result.model_version)
-        verdict = Verdict.PASS if result.matched else (
-            Verdict.INCONCLUSIVE if grey_band else Verdict.FAIL
+        verdict = (
+            Verdict.PASS
+            if result.matched
+            else (Verdict.INCONCLUSIVE if grey_band else Verdict.FAIL)
         )
         evidence = Evidence.create(
             step_id=step_id,

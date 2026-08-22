@@ -270,17 +270,17 @@ resource "aws_cloudwatch_dashboard" "main" {
   dashboard_body = jsonencode({
     widgets = [
       {
-        type       = "metric"
-        x          = 0
-        y          = 0
-        width      = 12
-        height     = 6
+        type   = "metric"
+        x      = 0
+        y      = 0
+        width  = 12
+        height = 6
         properties = {
-          title   = "Saga de onboarding"
-          region  = data.aws_region.current.name
-          view    = "timeSeries"
-          stat    = "Sum"
-          period  = 300
+          title  = "Saga de onboarding"
+          region = data.aws_region.current.name
+          view   = "timeSeries"
+          stat   = "Sum"
+          period = 300
           metrics = [
             ["AWS/States", "ExecutionsStarted", "StateMachineArn", var.parent_state_machine_arn],
             [".", "ExecutionsSucceeded", ".", "."],
@@ -290,16 +290,16 @@ resource "aws_cloudwatch_dashboard" "main" {
         }
       },
       {
-        type       = "metric"
-        x          = 12
-        y          = 0
-        width      = 12
-        height     = 6
+        type   = "metric"
+        x      = 12
+        y      = 0
+        width  = 12
+        height = 6
         properties = {
-          title   = "API"
-          region  = data.aws_region.current.name
-          view    = "timeSeries"
-          period  = 300
+          title  = "API"
+          region = data.aws_region.current.name
+          view   = "timeSeries"
+          period = 300
           metrics = [
             ["AWS/ApiGateway", "Count", "ApiName", var.api_name, "Stage", var.api_stage_name, { stat = "Sum" }],
             [".", "4XXError", ".", ".", ".", ".", { stat = "Sum" }],
@@ -309,17 +309,17 @@ resource "aws_cloudwatch_dashboard" "main" {
         }
       },
       {
-        type       = "metric"
-        x          = 0
-        y          = 6
-        width      = 12
-        height     = 6
+        type   = "metric"
+        x      = 0
+        y      = 6
+        width  = 12
+        height = 6
         properties = {
-          title   = "Tabla core"
-          region  = data.aws_region.current.name
-          view    = "timeSeries"
-          stat    = "Sum"
-          period  = 300
+          title  = "Tabla core"
+          region = data.aws_region.current.name
+          view   = "timeSeries"
+          stat   = "Sum"
+          period = 300
           metrics = [
             ["AWS/DynamoDB", "ConsumedReadCapacityUnits", "TableName", var.core_table_name],
             [".", "ConsumedWriteCapacityUnits", ".", "."],
@@ -328,17 +328,17 @@ resource "aws_cloudwatch_dashboard" "main" {
         }
       },
       {
-        type       = "metric"
-        x          = 12
-        y          = 6
-        width      = 12
-        height     = 6
+        type   = "metric"
+        x      = 12
+        y      = 6
+        width  = 12
+        height = 6
         properties = {
-          title   = "Volumen por tenant (metricas EMF emitidas por el codigo)"
-          region  = data.aws_region.current.name
-          view    = "timeSeries"
-          stat    = "Sum"
-          period  = 300
+          title  = "Volumen por tenant (metricas EMF emitidas por el codigo)"
+          region = data.aws_region.current.name
+          view   = "timeSeries"
+          stat   = "Sum"
+          period = 300
           metrics = [
             [var.custom_metric_namespace, "CasesProcessed", "TenantId", "ALL"],
           ]

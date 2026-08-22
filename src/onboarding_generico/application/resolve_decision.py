@@ -15,8 +15,9 @@ Puntos con consecuencias legales, no solo técnicas:
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Mapping
+from typing import TYPE_CHECKING, Any
 
 from ..domain.decision import Decision, DecisionEngine, DecisionThresholds
 from ..domain.enums import (

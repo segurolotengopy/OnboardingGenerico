@@ -44,16 +44,16 @@ locals {
     Comment       = "Extraccion documental: OCR generico mas extraccion estructurada por LLM. Solo punteros S3 en el estado."
     QueryLanguage = "JSONPath"
     StartAt       = "PreprocessImage"
-    States        = {
+    States = {
       PreprocessImage = {
-        Type       = "Task"
-        Resource   = "arn:${local.partition}:states:::lambda:invoke"
+        Type     = "Task"
+        Resource = "arn:${local.partition}:states:::lambda:invoke"
         Parameters = {
           FunctionName = var.preprocess_function_arn
-          Payload      = {
-            "tenantId.$"     = "$.tenantId"
-            "caseId.$"       = "$.caseId"
-            "documentUri.$"  = "$.documentUri"
+          Payload = {
+            "tenantId.$"       = "$.tenantId"
+            "caseId.$"         = "$.caseId"
+            "documentUri.$"    = "$.documentUri"
             "idempotencyKey.$" = "States.Format('{}#{}#preprocess', $.caseId, $.documentId)"
           }
         }
@@ -64,7 +64,7 @@ locals {
           "quality.$"       = "$.Payload.quality"
         }
         ResultPath = "$.preprocess"
-        Retry      = [
+        Retry = [
           {
             ErrorEquals     = ["Lambda.ServiceException", "Lambda.TooManyRequestsException", "Lambda.SdkClientException"]
             IntervalSeconds = 1
@@ -83,15 +83,15 @@ locals {
       }
 
       RunOcr = {
-        Type       = "Task"
-        Resource   = "arn:${local.partition}:states:::lambda:invoke"
+        Type     = "Task"
+        Resource = "arn:${local.partition}:states:::lambda:invoke"
         Parameters = {
           FunctionName = var.ocr_function_arn
-          Payload      = {
-            "tenantId.$"    = "$.tenantId"
-            "caseId.$"      = "$.caseId"
-            "imageUri.$"    = "$.preprocess.normalizedUri"
-            "countryCode.$" = "$.countryCode"
+          Payload = {
+            "tenantId.$"     = "$.tenantId"
+            "caseId.$"       = "$.caseId"
+            "imageUri.$"     = "$.preprocess.normalizedUri"
+            "countryCode.$"  = "$.countryCode"
             "documentType.$" = "$.documentType"
           }
         }
@@ -100,7 +100,7 @@ locals {
           "confidence.$"   = "$.Payload.confidence"
         }
         ResultPath = "$.ocr"
-        Retry      = [
+        Retry = [
           {
             ErrorEquals     = ["States.TaskFailed"]
             IntervalSeconds = 2
@@ -122,11 +122,11 @@ locals {
       # esencialmente EE. UU. Para LATAM el patron portable es OCR generico mas
       # un LLM multimodal con prompt por pais y tipo de documento.
       StructureFields = {
-        Type       = "Task"
-        Resource   = "arn:${local.partition}:states:::lambda:invoke"
+        Type     = "Task"
+        Resource = "arn:${local.partition}:states:::lambda:invoke"
         Parameters = {
           FunctionName = var.field_extraction_function_arn
-          Payload      = {
+          Payload = {
             "tenantId.$"     = "$.tenantId"
             "caseId.$"       = "$.caseId"
             "ocrResultUri.$" = "$.ocr.ocrResultUri"
@@ -135,9 +135,9 @@ locals {
           }
         }
         ResultSelector = {
-          "fieldsUri.$"   = "$.Payload.fieldsUri"
-          "mrzValid.$"    = "$.Payload.mrzValid"
-          "fieldScore.$"  = "$.Payload.fieldScore"
+          "fieldsUri.$"  = "$.Payload.fieldsUri"
+          "mrzValid.$"   = "$.Payload.mrzValid"
+          "fieldScore.$" = "$.Payload.fieldScore"
         }
         ResultPath = "$.extraction"
         End        = true
@@ -158,23 +158,23 @@ locals {
     Comment       = "Comparacion facial y vivacidad. El proveedor de liveness es intercambiable por el Registro de Capacidades."
     QueryLanguage = "JSONPath"
     StartAt       = "ParallelChecks"
-    States        = {
+    States = {
       ParallelChecks = {
-        Type     = "Parallel"
+        Type = "Parallel"
         Branches = [
           {
             StartAt = "FaceMatch"
-            States  = {
+            States = {
               FaceMatch = {
-                Type       = "Task"
-                Resource   = "arn:${local.partition}:states:::lambda:invoke"
+                Type     = "Task"
+                Resource = "arn:${local.partition}:states:::lambda:invoke"
                 Parameters = {
                   FunctionName = var.face_match_function_arn
-                  Payload      = {
-                    "tenantId.$"     = "$.tenantId"
-                    "caseId.$"       = "$.caseId"
-                    "portraitUri.$"  = "$.portraitUri"
-                    "selfieUri.$"    = "$.selfieUri"
+                  Payload = {
+                    "tenantId.$"    = "$.tenantId"
+                    "caseId.$"      = "$.caseId"
+                    "portraitUri.$" = "$.portraitUri"
+                    "selfieUri.$"   = "$.selfieUri"
                   }
                 }
                 ResultSelector = {
@@ -195,15 +195,15 @@ locals {
           },
           {
             StartAt = "Liveness"
-            States  = {
+            States = {
               Liveness = {
-                Type       = "Task"
-                Resource   = "arn:${local.partition}:states:::lambda:invoke"
+                Type     = "Task"
+                Resource = "arn:${local.partition}:states:::lambda:invoke"
                 Parameters = {
                   FunctionName = var.liveness_function_arn
-                  Payload      = {
-                    "tenantId.$"        = "$.tenantId"
-                    "caseId.$"          = "$.caseId"
+                  Payload = {
+                    "tenantId.$"          = "$.tenantId"
+                    "caseId.$"            = "$.caseId"
                     "livenessSessionId.$" = "$.livenessSessionId"
                   }
                 }
@@ -241,16 +241,16 @@ locals {
     QueryLanguage  = "JSONPath"
     StartAt        = "ResolveCapabilityPlan"
     TimeoutSeconds = var.parent_timeout_seconds
-    States         = {
+    States = {
       # El plan de pasos NO esta cableado en la ASL: se resuelve en tiempo de
       # ejecucion contra el Registro de Capacidades segun tenant, pais y tipo de
       # documento.
       ResolveCapabilityPlan = {
-        Type       = "Task"
-        Resource   = "arn:${local.partition}:states:::lambda:invoke"
+        Type     = "Task"
+        Resource = "arn:${local.partition}:states:::lambda:invoke"
         Parameters = {
           FunctionName = var.plan_resolver_function_arn
-          Payload      = {
+          Payload = {
             "tenantId.$"     = "$.tenantId"
             "caseId.$"       = "$.caseId"
             "countryCode.$"  = "$.countryCode"
@@ -258,12 +258,12 @@ locals {
           }
         }
         ResultSelector = {
-          "steps.$"           = "$.Payload.steps"
+          "steps.$"            = "$.Payload.steps"
           "requiresBiometry.$" = "$.Payload.requiresBiometry"
-          "riskThreshold.$"   = "$.Payload.riskThreshold"
+          "riskThreshold.$"    = "$.Payload.riskThreshold"
         }
         ResultPath = "$.plan"
-        Retry      = [
+        Retry = [
           {
             ErrorEquals     = ["Lambda.ServiceException", "Lambda.TooManyRequestsException"]
             IntervalSeconds = 1
@@ -277,23 +277,23 @@ locals {
       # Los dos hijos Express corren en paralelo. Arrancar un workflow anidado
       # no consume transicion facturada adicional.
       RunAutomatedChecks = {
-        Type     = "Parallel"
+        Type = "Parallel"
         Branches = [
           {
             StartAt = "InvokeExtraction"
-            States  = {
+            States = {
               InvokeExtraction = {
-                Type       = "Task"
-                Resource   = "arn:${local.partition}:states:::states:startExecution.sync:2"
+                Type     = "Task"
+                Resource = "arn:${local.partition}:states:::states:startExecution.sync:2"
                 Parameters = {
                   StateMachineArn = aws_sfn_state_machine.ocr_express.arn
-                  Input           = {
-                    "tenantId.$"     = "$.tenantId"
-                    "caseId.$"       = "$.caseId"
-                    "documentId.$"   = "$.documentId"
-                    "documentUri.$"  = "$.documentUri"
-                    "countryCode.$"  = "$.countryCode"
-                    "documentType.$" = "$.documentType"
+                  Input = {
+                    "tenantId.$"                                   = "$.tenantId"
+                    "caseId.$"                                     = "$.caseId"
+                    "documentId.$"                                 = "$.documentId"
+                    "documentUri.$"                                = "$.documentUri"
+                    "countryCode.$"                                = "$.countryCode"
+                    "documentType.$"                               = "$.documentType"
                     "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$" = "$$.Execution.Id"
                   }
                 }
@@ -316,9 +316,9 @@ locals {
           },
           {
             StartAt = "BiometryRequired"
-            States  = {
+            States = {
               BiometryRequired = {
-                Type    = "Choice"
+                Type = "Choice"
                 Choices = [
                   {
                     Variable      = "$.plan.requiresBiometry"
@@ -330,16 +330,16 @@ locals {
               }
 
               InvokeBiometrics = {
-                Type       = "Task"
-                Resource   = "arn:${local.partition}:states:::states:startExecution.sync:2"
+                Type     = "Task"
+                Resource = "arn:${local.partition}:states:::states:startExecution.sync:2"
                 Parameters = {
                   StateMachineArn = aws_sfn_state_machine.biometrics_express.arn
-                  Input           = {
-                    "tenantId.$"          = "$.tenantId"
-                    "caseId.$"            = "$.caseId"
-                    "portraitUri.$"       = "$.portraitUri"
-                    "selfieUri.$"         = "$.selfieUri"
-                    "livenessSessionId.$" = "$.livenessSessionId"
+                  Input = {
+                    "tenantId.$"                                   = "$.tenantId"
+                    "caseId.$"                                     = "$.caseId"
+                    "portraitUri.$"                                = "$.portraitUri"
+                    "selfieUri.$"                                  = "$.selfieUri"
+                    "livenessSessionId.$"                          = "$.livenessSessionId"
                     "AWS_STEP_FUNCTIONS_STARTED_BY_EXECUTION_ID.$" = "$$.Execution.Id"
                   }
                 }
@@ -358,7 +358,7 @@ locals {
           },
         ]
         ResultPath = "$.checks"
-        Catch      = [
+        Catch = [
           {
             ErrorEquals = ["States.ALL"]
             ResultPath  = "$.error"
@@ -369,11 +369,11 @@ locals {
       }
 
       ScoreRisk = {
-        Type       = "Task"
-        Resource   = "arn:${local.partition}:states:::lambda:invoke"
+        Type     = "Task"
+        Resource = "arn:${local.partition}:states:::lambda:invoke"
         Parameters = {
           FunctionName = var.risk_scoring_function_arn
-          Payload      = {
+          Payload = {
             "tenantId.$" = "$.tenantId"
             "caseId.$"   = "$.caseId"
             "checks.$"   = "$.checks"
@@ -390,7 +390,7 @@ locals {
       }
 
       NeedsManualReview = {
-        Type    = "Choice"
+        Type = "Choice"
         Choices = [
           {
             Variable     = "$.risk.decision"
@@ -410,11 +410,11 @@ locals {
       # paga la transicion. La tarea publica el caso en la cola de revision junto
       # con el task token y se queda esperando SendTaskSuccess/SendTaskFailure.
       AwaitHumanDecision = {
-        Type       = "Task"
-        Resource   = "arn:${local.partition}:states:::lambda:invoke.waitForTaskToken"
+        Type     = "Task"
+        Resource = "arn:${local.partition}:states:::lambda:invoke.waitForTaskToken"
         Parameters = {
           FunctionName = var.human_review_dispatch_function_arn
-          Payload      = {
+          Payload = {
             "tenantId.$"  = "$.tenantId"
             "caseId.$"    = "$.caseId"
             "risk.$"      = "$.risk"
@@ -426,7 +426,7 @@ locals {
         TimeoutSeconds   = var.human_review_timeout_seconds
         HeartbeatSeconds = var.human_review_heartbeat_seconds
         ResultPath       = "$.humanDecision"
-        Catch            = [
+        Catch = [
           {
             ErrorEquals = ["States.Timeout"]
             ResultPath  = "$.error"
@@ -442,7 +442,7 @@ locals {
       }
 
       ApplyHumanDecision = {
-        Type    = "Choice"
+        Type = "Choice"
         Choices = [
           {
             Variable     = "$.humanDecision.outcome"
@@ -454,15 +454,15 @@ locals {
       }
 
       EscalateExpiredReview = {
-        Type       = "Task"
-        Resource   = "arn:${local.partition}:states:::events:putEvents"
+        Type     = "Task"
+        Resource = "arn:${local.partition}:states:::events:putEvents"
         Parameters = {
           Entries = [
             {
               EventBusName = var.event_bus_name
               Source       = "onboarding.saga"
               DetailType   = "ManualReviewExpired"
-              Detail       = {
+              Detail = {
                 "tenantId.$" = "$.tenantId"
                 "caseId.$"   = "$.caseId"
               }
@@ -476,14 +476,14 @@ locals {
       # La escritura de evidencia es la accion no idempotente que justifica
       # Standard: se ejecuta exactamente una vez.
       RecordApproval = {
-        Type       = "Task"
-        Resource   = "arn:${local.partition}:states:::lambda:invoke"
+        Type     = "Task"
+        Resource = "arn:${local.partition}:states:::lambda:invoke"
         Parameters = {
           FunctionName = var.decision_recorder_function_arn
-          Payload      = {
+          Payload = {
             "tenantId.$" = "$.tenantId"
             "caseId.$"   = "$.caseId"
-            outcome = "APPROVED"
+            outcome      = "APPROVED"
             "risk.$"     = "$.risk"
           }
         }
@@ -492,14 +492,14 @@ locals {
       }
 
       RecordRejection = {
-        Type       = "Task"
-        Resource   = "arn:${local.partition}:states:::lambda:invoke"
+        Type     = "Task"
+        Resource = "arn:${local.partition}:states:::lambda:invoke"
         Parameters = {
           FunctionName = var.decision_recorder_function_arn
-          Payload      = {
+          Payload = {
             "tenantId.$" = "$.tenantId"
             "caseId.$"   = "$.caseId"
-            outcome = "REJECTED"
+            outcome      = "REJECTED"
             "risk.$"     = "$.risk"
           }
         }
@@ -607,8 +607,8 @@ data "aws_iam_policy_document" "express_permissions" {
   # La entrega de logs de Step Functions exige estos permisos sobre "*": el
   # servicio los evalua a nivel de cuenta, no de log group.
   statement {
-    sid     = "DeliverLogs"
-    effect  = "Allow"
+    sid    = "DeliverLogs"
+    effect = "Allow"
     actions = [
       "logs:CreateLogDelivery",
       "logs:GetLogDelivery",
@@ -768,7 +768,7 @@ resource "aws_iam_role_policy" "apigw_start_execution" {
   role = aws_iam_role.apigw_start_execution.id
 
   policy = jsonencode({
-    Version   = "2012-10-17"
+    Version = "2012-10-17"
     Statement = [
       {
         Effect   = "Allow"

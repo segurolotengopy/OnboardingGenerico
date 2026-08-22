@@ -24,7 +24,7 @@ locals {
     documents = {
       classification = "restricted"
       versioning     = true
-      transitions    = [
+      transitions = [
         { age = 30, storage_class = "NEARLINE" },
         { age = 90, storage_class = "COLDLINE" },
         { age = 365, storage_class = "ARCHIVE" },
@@ -35,7 +35,7 @@ locals {
     biometrics = {
       classification = "restricted"
       versioning     = true
-      transitions    = [
+      transitions = [
         { age = 30, storage_class = "NEARLINE" },
         { age = 180, storage_class = "COLDLINE" },
       ]

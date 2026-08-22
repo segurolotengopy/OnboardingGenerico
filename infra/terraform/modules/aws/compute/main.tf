@@ -80,7 +80,7 @@ resource "aws_ecr_lifecycle_policy" "this" {
       {
         rulePriority = 1
         description  = "Conservar solo las ultimas imagenes etiquetadas para release"
-        selection    = {
+        selection = {
           tagStatus     = "tagged"
           tagPrefixList = ["v"]
           countType     = "imageCountMoreThan"
@@ -91,7 +91,7 @@ resource "aws_ecr_lifecycle_policy" "this" {
       {
         rulePriority = 2
         description  = "Purgar imagenes sin etiqueta a los 7 dias"
-        selection    = {
+        selection = {
           tagStatus   = "untagged"
           countType   = "sinceImagePushed"
           countUnit   = "days"
@@ -173,8 +173,8 @@ data "aws_iam_policy_document" "execution" {
   }
 
   statement {
-    sid     = "PlatformCatalogAccess"
-    effect  = "Allow"
+    sid    = "PlatformCatalogAccess"
+    effect = "Allow"
     actions = [
       "dynamodb:GetItem",
       "dynamodb:Query",
@@ -186,8 +186,8 @@ data "aws_iam_policy_document" "execution" {
   }
 
   statement {
-    sid     = "DistributedLock"
-    effect  = "Allow"
+    sid    = "DistributedLock"
+    effect = "Allow"
     actions = [
       "dynamodb:PutItem",
       "dynamodb:GetItem",
@@ -200,8 +200,8 @@ data "aws_iam_policy_document" "execution" {
   dynamic "statement" {
     for_each = var.keystore_table_arn == null ? [] : [1]
     content {
-      sid     = "HierarchicalKeyringBranchKeys"
-      effect  = "Allow"
+      sid    = "HierarchicalKeyringBranchKeys"
+      effect = "Allow"
       actions = [
         "dynamodb:GetItem",
         "dynamodb:Query",
@@ -233,8 +233,8 @@ data "aws_iam_policy_document" "execution" {
   }
 
   statement {
-    sid     = "StagingObjects"
-    effect  = "Allow"
+    sid    = "StagingObjects"
+    effect = "Allow"
     actions = [
       "s3:GetObject",
       "s3:PutObject",
@@ -405,8 +405,8 @@ resource "aws_lambda_alias" "live" {
 resource "aws_lambda_provisioned_concurrency_config" "live" {
   for_each = aws_lambda_alias.live
 
-  function_name                     = each.value.function_name
-  qualifier                         = each.value.name
+  function_name = each.value.function_name
+  qualifier     = each.value.name
   provisioned_concurrent_executions = try(
     var.zip_functions[each.key].provisioned_concurrency,
     var.container_functions[each.key].provisioned_concurrency,

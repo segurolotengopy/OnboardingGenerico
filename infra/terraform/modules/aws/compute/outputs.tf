@@ -1,6 +1,6 @@
 output "function_arns" {
   description = "Mapa de nombre logico a ARN de la funcion, tanto zip como contenedor."
-  value       = merge(
+  value = merge(
     { for k, v in aws_lambda_function.zip : k => v.arn },
     { for k, v in aws_lambda_function.container : k => v.arn },
   )
@@ -8,7 +8,7 @@ output "function_arns" {
 
 output "function_names" {
   description = "Mapa de nombre logico a nombre completo de la funcion."
-  value       = merge(
+  value = merge(
     { for k, v in aws_lambda_function.zip : k => v.function_name },
     { for k, v in aws_lambda_function.container : k => v.function_name },
   )
@@ -16,7 +16,7 @@ output "function_names" {
 
 output "function_invoke_arns" {
   description = "Mapa de nombre logico a invoke ARN. Es el valor que espera la integracion AWS_PROXY de API Gateway."
-  value       = merge(
+  value = merge(
     { for k, v in aws_lambda_function.zip : k => v.invoke_arn },
     { for k, v in aws_lambda_function.container : k => v.invoke_arn },
   )

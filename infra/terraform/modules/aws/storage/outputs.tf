@@ -40,7 +40,7 @@ output "evidence_bucket_arn" {
 
 output "tenant_scoped_bucket_arns" {
   description = "ARNs de los buckets sujetos a scoping por prefijo de tenant. Es el valor que espera tenant_bucket_arns del modulo de identidad."
-  value       = [
+  value = [
     aws_s3_bucket.this["documents"].arn,
     aws_s3_bucket.this["biometrics"].arn,
     aws_s3_bucket.this["staging"].arn,

@@ -10,7 +10,8 @@ from __future__ import annotations
 
 import json
 import threading
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 from ...domain.enums import DecisionIssuer
 from ...domain.value_objects import TenantId
@@ -38,11 +39,11 @@ DEFAULT_TENANT_CONFIG: dict[str, Any] = {
 class InMemorySecretsProvider(SecretsProvider):
     """Secretos en memoria. **Nunca** se sirve un valor por defecto silencioso."""
 
-    __slots__ = ("_secrets", "_versions", "_lock")
+    __slots__ = ("_lock", "_secrets", "_versions")
 
     def __init__(self, secrets: Mapping[str, str] | None = None) -> None:
         self._secrets: dict[str, str] = dict(secrets or {})
-        self._versions: dict[str, int] = {name: 1 for name in self._secrets}
+        self._versions: dict[str, int] = dict.fromkeys(self._secrets, 1)
         self._lock = threading.Lock()
 
     def get_secret(self, name: str, *, version: str = "latest") -> str:
@@ -79,7 +80,7 @@ class InMemorySecretsProvider(SecretsProvider):
 class InMemoryConfigProvider(ConfigProvider):
     """Configuración de plataforma y por tenant."""
 
-    __slots__ = ("_platform", "_tenants", "_lock")
+    __slots__ = ("_lock", "_platform", "_tenants")
 
     def __init__(
         self,
@@ -87,9 +88,7 @@ class InMemoryConfigProvider(ConfigProvider):
         tenants: Mapping[str, Mapping[str, Any]] | None = None,
     ) -> None:
         self._platform: dict[str, str] = dict(platform or {})
-        self._tenants: dict[str, dict[str, Any]] = {
-            k: dict(v) for k, v in (tenants or {}).items()
-        }
+        self._tenants: dict[str, dict[str, Any]] = {k: dict(v) for k, v in (tenants or {}).items()}
         self._lock = threading.RLock()
 
     def get(self, key: str, default: str | None = None) -> str | None:
@@ -112,7 +111,9 @@ class InMemoryConfigProvider(ConfigProvider):
 
     def get_decision_issuer(self, tenant_id: TenantId) -> DecisionIssuer:
         config = self.get_tenant_config(tenant_id)
-        issuer = DecisionIssuer(str(config.get("decision_issuer", DecisionIssuer.SIGNALS_ONLY.value)))
+        issuer = DecisionIssuer(
+            str(config.get("decision_issuer", DecisionIssuer.SIGNALS_ONLY.value))
+        )
         # Regla de cumplimiento codificada, no una nota de manual: en Bolivia
         # el sujeto obligado no puede delegar la Debida Diligencia (art. 32(II)
         # del Instructivo UIF).
@@ -170,7 +171,9 @@ class InMemoryAuthorizationProvider(AuthorizationProvider):
         if unknown:
             raise ConfigurationError("acciones desconocidas", actions=sorted(unknown))
         with self._lock:
-            self._grants.setdefault(principal, {}).setdefault(tenant_id.value, set()).update(resolved)
+            self._grants.setdefault(principal, {}).setdefault(tenant_id.value, set()).update(
+                resolved
+            )
 
     def revoke(self, principal: str, tenant_id: TenantId) -> None:
         with self._lock:

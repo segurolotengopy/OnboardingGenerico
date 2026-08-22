@@ -47,7 +47,7 @@ variable "backend_deadline_seconds" {
 variable "required_services" {
   description = "APIs de Google Cloud que deben estar habilitadas para que la pasarela funcione."
   type        = list(string)
-  default     = [
+  default = [
     "apigateway.googleapis.com",
     "servicemanagement.googleapis.com",
     "servicecontrol.googleapis.com",

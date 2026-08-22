@@ -20,9 +20,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any
 from uuid import uuid4
 
 from ..errors import AuditChainError
@@ -152,7 +153,7 @@ class AuditChain:
     duplicarse en DynamoDB y en Firestore.
     """
 
-    __slots__ = ("_events", "tenant_id", "session_id")
+    __slots__ = ("_events", "session_id", "tenant_id")
 
     def __init__(self, tenant_id: str, session_id: str, events: Iterable[AuditEvent] = ()) -> None:
         self.tenant_id = tenant_id
@@ -243,9 +244,9 @@ def verify_chain(events: Sequence[AuditEvent]) -> None:
 
 
 __all__ = [
+    "GENESIS_HASH",
     "AuditChain",
     "AuditEvent",
-    "GENESIS_HASH",
     "canonical_json",
     "verify_chain",
 ]

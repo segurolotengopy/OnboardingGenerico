@@ -21,8 +21,8 @@ jobs:
     name: Lint y tipos
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
@@ -45,8 +45,8 @@ jobs:
       matrix:
         python: ["3.11", "3.12"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
           cache: pip
@@ -59,7 +59,7 @@ jobs:
         run: PYTHONPATH=src python tests/run_smoke.py
       - name: Publicar cobertura
         if: matrix.python == '3.12'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage
           path: coverage.xml
@@ -68,8 +68,8 @@ jobs:
     name: Reglas de arquitectura
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v7
         with: { python-version: "3.12" }
       - name: El núcleo no debe importar SDK de nube
         run: |
@@ -83,19 +83,106 @@ jobs:
           echo "Núcleo limpio."
       - name: Los puertos no deben exponer primitivas de almacenamiento
         run: |
-          if grep -rniE '\b(partition_key|sort_key|begins_with|pk\b|sk\b)' src/onboarding_generico/ports/*.py \
-             | grep -v '#' ; then
-            echo "::error::Un puerto expone primitivas de DynamoDB."
-            exit 1
-          fi
-          echo "Puertos limpios."
+          # Este control se hace sobre el AST y no con grep de texto: la
+          # documentación de los puertos nombra `PK`, `SK` y `begins_with` justamente
+          # para prohibirlos, y un grep sobre el texto crudo no distingue esa prosa
+          # de una violación real. Los comentarios no existen en el AST y los
+          # docstrings se descartan de forma explícita, así que solo queda la
+          # superficie de código: nombres, parámetros, atributos y claves literales.
+          python - <<'PY'
+          import ast
+          import pathlib
+          import re
+          import sys
+
+          PRIMITIVAS = re.compile(
+              r"(^|_)(pk|sk)($|_)"
+              r"|partition_key"
+              r"|sort_key"
+              r"|begins_with"
+              r"|condition_expression"
+              r"|key_condition"
+              r"|attribute_not_exists"
+              r"|attribute_exists"
+              r"|exclusive_start_key"
+              r"|last_evaluated_key"
+              r"|projection_expression"
+              r"|expression_attribute"
+          )
+
+
+          def normalizar(nombre: str) -> str:
+              """Lleva CamelCase y SCREAMING_CASE a snake_case en minúsculas."""
+              return re.sub(r"(?<=[a-z0-9])(?=[A-Z])", "_", nombre).lower()
+
+
+          def es_violacion(nombre: str) -> bool:
+              return bool(PRIMITIVAS.search(normalizar(nombre)))
+
+
+          def revisar(ruta: pathlib.Path) -> list[str]:
+              arbol = ast.parse(ruta.read_text(encoding="utf-8"), filename=str(ruta))
+              # Un docstring es una cadena suelta en posición de sentencia. Se marca
+              # por identidad para excluirla sin excluir cadenas que sí son código.
+              docstrings = {
+                  id(nodo.value)
+                  for nodo in ast.walk(arbol)
+                  if isinstance(nodo, ast.Expr) and isinstance(nodo.value, ast.Constant)
+              }
+              hallazgos: list[str] = []
+
+              def anotar(nodo: ast.AST, nombre: str, clase: str) -> None:
+                  if es_violacion(nombre):
+                      linea = getattr(nodo, "lineno", 0)
+                      hallazgos.append(f"{ruta}:{linea}: {clase} '{nombre}'")
+
+              for nodo in ast.walk(arbol):
+                  if isinstance(nodo, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                      anotar(nodo, nodo.name, "función")
+                  elif isinstance(nodo, ast.ClassDef):
+                      anotar(nodo, nodo.name, "clase")
+                  elif isinstance(nodo, ast.arg):
+                      anotar(nodo, nodo.arg, "parámetro")
+                  elif isinstance(nodo, ast.keyword) and nodo.arg:
+                      anotar(nodo, nodo.arg, "argumento")
+                  elif isinstance(nodo, ast.Attribute):
+                      anotar(nodo, nodo.attr, "atributo")
+                  elif isinstance(nodo, ast.Name):
+                      anotar(nodo, nodo.id, "identificador")
+                  elif isinstance(nodo, ast.alias):
+                      anotar(nodo, nodo.asname or nodo.name, "importación")
+                  elif isinstance(nodo, ast.Constant) and isinstance(nodo.value, str):
+                      # Solo cadenas con forma de clave, nunca prosa: se exige que la
+                      # cadena entera sea la primitiva y que no contenga espacios.
+                      if id(nodo) in docstrings:
+                          continue
+                      texto = nodo.value.strip()
+                      if texto and " " not in texto and es_violacion(texto):
+                          anotar(nodo, texto, "cadena")
+
+              return hallazgos
+
+
+          puertos = sorted(pathlib.Path("src/onboarding_generico/ports").glob("*.py"))
+          if not puertos:
+              print("::error::No se encontró ningún puerto que revisar.")
+              sys.exit(1)
+
+          hallazgos = [h for ruta in puertos for h in revisar(ruta)]
+          if hallazgos:
+              for h in hallazgos:
+                  print(f"::error::Un puerto expone primitivas de DynamoDB -> {h}")
+              sys.exit(1)
+
+          print(f"Puertos limpios ({len(puertos)} archivos revisados).")
+          PY
 
   contratos:
     name: Validación de contratos
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v7
         with: { python-version: "3.12" }
       - run: pip install check-jsonschema
       - name: Esquemas JSON
@@ -115,8 +202,8 @@ jobs:
     name: Terraform
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
+      - uses: actions/checkout@v5
+      - uses: hashicorp/setup-terraform@v4
         with: { terraform_version: "1.8.5" }
       - name: Formato
         run: terraform fmt -check -recursive infra/terraform

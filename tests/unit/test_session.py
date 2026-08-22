@@ -144,7 +144,9 @@ def test_full_happy_path_to_retained() -> None:
 
 
 def test_review_loop() -> None:
-    session = _session().transition_to(SessionState.COLLECTING).transition_to(SessionState.PROCESSING)
+    session = (
+        _session().transition_to(SessionState.COLLECTING).transition_to(SessionState.PROCESSING)
+    )
     session = session.transition_to(SessionState.PENDING_REVIEW)
     session = session.transition_to(SessionState.IN_REVIEW)
     # El revisor puede devolver el caso a la cola.
@@ -221,8 +223,12 @@ def test_i7_biometric_artifact_requires_purge_date() -> None:
 
 def test_register_artifact_replaces_same_slot_and_moves_to_collecting() -> None:
     session = _session()
-    first = Artifact(slot=ArtifactSlot.DOC_FRONT, ref=_ref("tenants/acme/a"), data_class=DataClass.DOCUMENT)
-    second = Artifact(slot=ArtifactSlot.DOC_FRONT, ref=_ref("tenants/acme/b"), data_class=DataClass.DOCUMENT)
+    first = Artifact(
+        slot=ArtifactSlot.DOC_FRONT, ref=_ref("tenants/acme/a"), data_class=DataClass.DOCUMENT
+    )
+    second = Artifact(
+        slot=ArtifactSlot.DOC_FRONT, ref=_ref("tenants/acme/b"), data_class=DataClass.DOCUMENT
+    )
     session = session.register_artifact(first).register_artifact(second)
     assert len(session.artifacts) == 1
     assert session.artifact(ArtifactSlot.DOC_FRONT) == second

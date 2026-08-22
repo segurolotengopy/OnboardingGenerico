@@ -102,14 +102,12 @@ def test_signatures_match_the_port(adapter: Any) -> None:
             port_signature = inspect.signature(getattr(port, name))
             adapter_signature = inspect.signature(getattr(type(adapter), name))
             port_params = [p for p in port_signature.parameters.values() if p.name != "self"]
-            adapter_params = [
-                p for p in adapter_signature.parameters.values() if p.name != "self"
-            ]
+            adapter_params = [p for p in adapter_signature.parameters.values() if p.name != "self"]
             assert len(port_params) == len(adapter_params), (
                 f"{type(adapter).__name__}.{name} cambia el número de parámetros de "
                 f"{port.__name__}.{name}"
             )
-            for expected, actual in zip(port_params, adapter_params):
+            for expected, actual in zip(port_params, adapter_params, strict=True):
                 assert expected.kind == actual.kind, (
                     f"{type(adapter).__name__}.{name}: el parámetro '{actual.name}' cambia de "
                     f"clase respecto a {port.__name__}"
@@ -240,9 +238,12 @@ def test_capability_registry_contract(tenant: TenantId) -> None:
     assert registry.is_active(Capability.OCR_DOCUMENT, "documentai_ocr") is False
 
     # Sin vínculo del tenant, la resolución es vacía: `CapabilityNotProvisioned`.
-    assert registry.resolve_provider(
-        tenant, Capability.OCR_DOCUMENT, country="MX", document_type="INE_2019"
-    ) == ()
+    assert (
+        registry.resolve_provider(
+            tenant, Capability.OCR_DOCUMENT, country="MX", document_type="INE_2019"
+        )
+        == ()
+    )
 
     registry.bind_tenant(
         tenant, Capability.OCR_DOCUMENT, primary="textract_ocr", fallbacks=["documentai_ocr"]
@@ -253,9 +254,12 @@ def test_capability_registry_contract(tenant: TenantId) -> None:
     # El proveedor inactivo se descarta de la cadena.
     assert [p.provider_id for p in chain] == ["textract_ocr"]
     # Y el país no cubierto también.
-    assert registry.resolve_provider(
-        tenant, Capability.OCR_DOCUMENT, country="FR", document_type="PASSPORT"
-    ) == ()
+    assert (
+        registry.resolve_provider(
+            tenant, Capability.OCR_DOCUMENT, country="FR", document_type="PASSPORT"
+        )
+        == ()
+    )
     assert Capability.OCR_DOCUMENT in registry.tenant_capabilities(tenant)
 
 
@@ -361,7 +365,7 @@ def test_importing_the_package_never_requires_a_cloud_sdk() -> None:
     for module in pkgutil.walk_packages(onboarding_generico.__path__, "onboarding_generico."):
         try:
             importlib.import_module(module.name)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             failures.append(f"{module.name}: {type(exc).__name__}: {exc}")
     assert failures == []
 
@@ -371,9 +375,7 @@ def test_no_cloud_sdk_is_loaded_after_importing_everything() -> None:
         assert forbidden not in sys.modules, f"{forbidden} se cargó al importar el paquete"
 
 
-@pytest.mark.parametrize(
-    "package", ["domain", "ports", "composer", "application", "crypto"]
-)
+@pytest.mark.parametrize("package", ["domain", "ports", "composer", "application", "crypto"])
 def test_the_core_does_not_import_adapters(package: str) -> None:
     """El núcleo no puede conocer a ningún adaptador ni a ningún SDK."""
     root = Path(onboarding_generico.__path__[0]) / package
@@ -426,8 +428,7 @@ def test_repository_port_exposes_no_dynamodb_primitives() -> None:
         for name in port.__abstractmethods__:
             surface.append(name.lower())
             surface.extend(
-                parameter.lower()
-                for parameter in inspect.signature(getattr(port, name)).parameters
+                parameter.lower() for parameter in inspect.signature(getattr(port, name)).parameters
             )
     for token in forbidden:
         assert token not in surface, f"el puerto de repositorio expone '{token}'"

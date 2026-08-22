@@ -14,8 +14,9 @@ from __future__ import annotations
 import copy
 import threading
 import time
+from collections.abc import Mapping, Sequence
 from datetime import datetime
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from ...domain.enums import Capability, SessionState
 from ...domain.events import AuditEvent
@@ -34,7 +35,7 @@ from ...ports.repository import (
 class InMemorySessionRepository(SessionRepository):
     """Repositorio de sesiones con bloqueo optimista real."""
 
-    __slots__ = ("_sessions", "_audit", "_lock")
+    __slots__ = ("_audit", "_lock", "_sessions")
 
     def __init__(self) -> None:
         self._sessions: dict[tuple[str, str], OnboardingSession] = {}
@@ -91,7 +92,9 @@ class InMemorySessionRepository(SessionRepository):
         matches.sort(key=lambda s: s.created_at)
         return tuple(matches[:limit])
 
-    def find_by_external_ref(self, tenant_id: TenantId, external_ref: str) -> OnboardingSession | None:
+    def find_by_external_ref(
+        self, tenant_id: TenantId, external_ref: str
+    ) -> OnboardingSession | None:
         with self._lock:
             for (tid, _), session in self._sessions.items():
                 if tid == tenant_id.value and session.external_ref == external_ref:
@@ -125,7 +128,7 @@ class InMemorySessionRepository(SessionRepository):
 class InMemoryCapabilityRegistry(CapabilityRegistryRepository):
     """Catálogo de plataforma y vínculos tenant→proveedor."""
 
-    __slots__ = ("_catalog", "_bindings", "_lock")
+    __slots__ = ("_bindings", "_catalog", "_lock")
 
     def __init__(self) -> None:
         self._catalog: dict[tuple[str, str], dict[str, Any]] = {}
@@ -215,9 +218,7 @@ class InMemoryCapabilityRegistry(CapabilityRegistryRepository):
 
     def tenant_capabilities(self, tenant_id: TenantId) -> tuple[Capability, ...]:
         with self._lock:
-            return tuple(
-                Capability(cap) for (tid, cap) in self._bindings if tid == tenant_id.value
-            )
+            return tuple(Capability(cap) for (tid, cap) in self._bindings if tid == tenant_id.value)
 
 
 def _covers(allowed: Sequence[str], value: str | None) -> bool:
@@ -234,7 +235,7 @@ class InMemoryMutexLock(MutexLock):
     perdió el lock por expiración podría seguir escribiendo.
     """
 
-    __slots__ = ("_locks", "_fence", "_lock", "_clock")
+    __slots__ = ("_clock", "_fence", "_lock", "_locks")
 
     def __init__(self, clock: Any = None) -> None:
         self._locks: dict[tuple[str, str], tuple[str, float]] = {}
@@ -277,14 +278,16 @@ class InMemoryMutexLock(MutexLock):
 class InMemoryIdempotencyStore(IdempotencyStore):
     """Reserva de claves de idempotencia con TTL."""
 
-    __slots__ = ("_entries", "_lock", "_clock")
+    __slots__ = ("_clock", "_entries", "_lock")
 
     def __init__(self, clock: Any = None) -> None:
         self._entries: dict[tuple[str, str, str], tuple[float, dict[str, Any] | None]] = {}
         self._lock = threading.Lock()
         self._clock = clock or time.monotonic
 
-    def reserve(self, tenant_id: TenantId, scope: str, key: str, *, ttl_seconds: int = 86_400) -> bool:
+    def reserve(
+        self, tenant_id: TenantId, scope: str, key: str, *, ttl_seconds: int = 86_400
+    ) -> bool:
         identity = (tenant_id.value, scope, key)
         now = self._clock()
         with self._lock:

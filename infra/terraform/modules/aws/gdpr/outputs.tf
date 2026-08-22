@@ -20,7 +20,7 @@ output "retention_sweep_schedule_arn" {
 
 output "compliance_alarm_names" {
   description = "Nombres de las alarmas de cumplimiento de este modulo."
-  value       = [
+  value = [
     aws_cloudwatch_metric_alarm.purge_dlq_not_empty.alarm_name,
     aws_cloudwatch_metric_alarm.purge_function_errors.alarm_name,
     aws_cloudwatch_metric_alarm.purge_iterator_age.alarm_name,

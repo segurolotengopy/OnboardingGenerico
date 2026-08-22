@@ -20,8 +20,9 @@ La forma de la interfaz la dicta GCP, que es el destino más restrictivo:
 from __future__ import annotations
 
 import abc
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any, Mapping
+from typing import Any
 
 from ..domain.value_objects import SessionId, TenantId
 

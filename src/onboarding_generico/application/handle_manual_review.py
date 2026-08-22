@@ -180,7 +180,9 @@ class HandleManualReview:
             session_id = SessionId(case.session_id)
             session = self._c.sessions.get(tenant_id, session_id)
             chain = AuditChain(
-                tenant_id.value, session_id.value, self._c.sessions.audit_trail(tenant_id, session_id)
+                tenant_id.value,
+                session_id.value,
+                self._c.sessions.audit_trail(tenant_id, session_id),
             )
             if session.state is SessionState.PENDING_REVIEW:
                 session = session.transition_to(SessionState.IN_REVIEW)
@@ -206,9 +208,7 @@ class HandleManualReview:
                 self._c.saga.resume(token, {"outcome": str(outcome), "case_id": command.case_id})
                 resumed = True
 
-            self._c.telemetry.increment(
-                "reviews_resolved", dimensions={"outcome": str(outcome)}
-            )
+            self._c.telemetry.increment("reviews_resolved", dimensions={"outcome": str(outcome)})
             return ResolveCaseResult(
                 case_id=command.case_id,
                 session_id=case.session_id,

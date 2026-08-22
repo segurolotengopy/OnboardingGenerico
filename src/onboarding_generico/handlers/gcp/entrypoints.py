@@ -17,7 +17,8 @@ módulo se pueda importar sin el extra `gcp` instalado.
 
 from __future__ import annotations
 
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 from ...application.purge_tenant_data import PurgeCommand, PurgeTenantData
 from ...application.resolve_decision import ResolveDecision, ResolveDecisionCommand
@@ -50,8 +51,8 @@ def reset_container(container: Container | None = None) -> None:
 
 def _require_fastapi() -> tuple[Any, Any]:
     try:
-        import fastapi  # noqa: PLC0415
-        from fastapi.responses import JSONResponse  # noqa: PLC0415
+        import fastapi
+        from fastapi.responses import JSONResponse
     except ImportError as exc:  # pragma: no cover - depende del entorno
         raise MissingDependencyError("fastapi", "gcp") from exc
     return fastapi, JSONResponse
@@ -59,7 +60,7 @@ def _require_fastapi() -> tuple[Any, Any]:
 
 def create_app() -> Any:
     """Construye la aplicación FastAPI que sirve Cloud Run."""
-    fastapi, JSONResponse = _require_fastapi()
+    fastapi, json_response = _require_fastapi()
     app = fastapi.FastAPI(title="Onboarding Genérico", version="1.0.0")
     container = get_container()
 
@@ -72,7 +73,7 @@ def create_app() -> Any:
         if request.url.path.startswith("/healthz"):
             return await call_next(request)
         if not principal or not tenant_raw:
-            return JSONResponse(
+            return json_response(
                 status_code=401,
                 content={"error": {"code": "OG_UNAUTHORIZED", "message": "faltan credenciales"}},
             )
@@ -81,7 +82,7 @@ def create_app() -> Any:
                 principal, TenantId(tenant_raw), _action_for(request.method, request.url.path)
             )
         except AuthorizationError as exc:
-            return JSONResponse(status_code=403, content={"error": exc.to_dict()})
+            return json_response(status_code=403, content={"error": exc.to_dict()})
         with correlation_scope(correlation_id=correlation_id, tenant_id=tenant_raw):
             request.state.principal = principal
             request.state.tenant_id = tenant_raw
@@ -91,7 +92,7 @@ def create_app() -> Any:
     @app.exception_handler(OnboardingError)
     async def domain_error_handler(request: Any, exc: OnboardingError) -> Any:
         _logger.warning("error de dominio", code=exc.code)
-        return JSONResponse(status_code=exc.http_status, content={"error": exc.to_dict()})
+        return json_response(status_code=exc.http_status, content={"error": exc.to_dict()})
 
     @app.get("/healthz")
     async def healthz() -> dict[str, Any]:

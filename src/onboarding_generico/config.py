@@ -16,8 +16,9 @@ Principios:
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Final, Mapping
+from typing import Final
 
 from .errors import ConfigurationError
 
@@ -186,16 +187,24 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
         redact_pii=_get_bool(source, "REDACT_PII", True),
         telemetry_enabled=_get_bool(source, "TELEMETRY_ENABLED", True),
         artifact_bucket=_get(source, "ARTIFACT_BUCKET", "og-dev-artifacts"),
-        presign_ttl_seconds=_get_int(source, "PRESIGN_TTL_SECONDS", 900, minimum=60, maximum=43_200),
-        session_ttl_seconds=_get_int(source, "SESSION_TTL_SECONDS", 3600, minimum=300, maximum=604_800),
+        presign_ttl_seconds=_get_int(
+            source, "PRESIGN_TTL_SECONDS", 900, minimum=60, maximum=43_200
+        ),
+        session_ttl_seconds=_get_int(
+            source, "SESSION_TTL_SECONDS", 3600, minimum=300, maximum=604_800
+        ),
         capture_window_seconds=_get_int(
             source, "CAPTURE_WINDOW_SECONDS", 1800, minimum=120, maximum=604_800
         ),
         max_artifact_bytes=_get_int(
             source, "MAX_ARTIFACT_BYTES", 12_000_000, minimum=1_000, maximum=50_000_000
         ),
-        key_cache_ttl_seconds=_get_int(source, "KEY_CACHE_TTL_SECONDS", 300, minimum=1, maximum=3_600),
-        key_cache_max_entries=_get_int(source, "KEY_CACHE_MAX_ENTRIES", 512, minimum=1, maximum=100_000),
+        key_cache_ttl_seconds=_get_int(
+            source, "KEY_CACHE_TTL_SECONDS", 300, minimum=1, maximum=3_600
+        ),
+        key_cache_max_entries=_get_int(
+            source, "KEY_CACHE_MAX_ENTRIES", 512, minimum=1, maximum=100_000
+        ),
         kms_key_alias=_get(source, "KMS_KEY_ALIAS", "alias/og-dev-tenant"),
         default_decision_issuer=_get(source, "DEFAULT_DECISION_ISSUER", "SIGNALS_ONLY").upper(),
         face_match_min_similarity=_get_float(
@@ -215,9 +224,9 @@ def load_settings(env: Mapping[str, str] | None = None) -> Settings:
 
 
 __all__ = [
-    "Settings",
-    "load_settings",
     "ENV_PREFIX",
     "SUPPORTED_CLOUD_PROVIDERS",
     "SUPPORTED_DECISION_ISSUERS",
+    "Settings",
+    "load_settings",
 ]

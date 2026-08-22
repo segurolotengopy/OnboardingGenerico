@@ -36,7 +36,8 @@ from ...ports.liveness import LivenessPort, LivenessResult, LivenessSession
 from ...ports.secrets import SecretsProvider
 
 #: Nombre del secreto con la credencial del proveedor. **Nunca en el código.**
-API_KEY_SECRET_NAME: str = "og/liveness/api-key"
+#: Es el identificador del secreto en el gestor de secretos, no su valor.
+API_KEY_SECRET_NAME: str = "og/liveness/api-key"  # noqa: S105 - nombre del secreto, no la credencial
 
 DEFAULT_TIMEOUT_SECONDS: float = 10.0
 
@@ -44,7 +45,7 @@ DEFAULT_TIMEOUT_SECONDS: float = 10.0
 class SaasLivenessClient(LivenessPort):
     """Cliente HTTP del proveedor de liveness, idéntico en AWS y en GCP."""
 
-    __slots__ = ("_settings", "_secrets", "_base_url", "_timeout")
+    __slots__ = ("_base_url", "_secrets", "_settings", "_timeout")
 
     PROVIDER_ID = "saas_liveness"
 
@@ -68,23 +69,34 @@ class SaasLivenessClient(LivenessPort):
             )
         return self._secrets.get_secret(API_KEY_SECRET_NAME)
 
-    def _request(self, method: str, path: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
+    def _request(
+        self, method: str, path: str, body: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """Petición HTTPS con `urllib` de la stdlib.
 
         Se evita `requests` a propósito: es una dependencia más en la imagen
         de la función y esta es la única llamada HTTP saliente del proceso.
         """
-        import json  # noqa: PLC0415
-        import urllib.error  # noqa: PLC0415
-        import urllib.request  # noqa: PLC0415
+        import json
+        import urllib.error
+        import urllib.request
 
         if not self._base_url:
             raise ProviderUnavailableError(
                 "no hay URL base configurada para el proveedor de liveness",
                 provider_id=self.PROVIDER_ID,
             )
+        # La URL base viene de configuración, así que el esquema es entrada no
+        # confiable: sin esta comprobación un `file://` convertiría `urlopen`
+        # en una lectura del sistema de archivos de la función. Solo HTTPS: la
+        # credencial del proveedor viaja en la cabecera Authorization.
+        if not self._base_url.startswith("https://"):
+            raise ProviderUnavailableError(
+                "la URL base del proveedor de liveness debe usar HTTPS",
+                provider_id=self.PROVIDER_ID,
+            )
         payload = json.dumps(body or {}).encode("utf-8")
-        request = urllib.request.Request(
+        request = urllib.request.Request(  # noqa: S310 - esquema validado como https arriba
             f"{self._base_url}{path}",
             data=payload if method != "GET" else None,
             method=method,
@@ -95,11 +107,12 @@ class SaasLivenessClient(LivenessPort):
             },
         )
         try:
-            with urllib.request.urlopen(request, timeout=self._timeout) as response:
+            # El esquema ya se validó como https más arriba.
+            with urllib.request.urlopen(request, timeout=self._timeout) as response:  # noqa: S310
                 parsed: dict[str, Any] = json.loads(response.read().decode("utf-8"))
                 return parsed
         except urllib.error.HTTPError as exc:
-            from ...errors import ProviderThrottledError  # noqa: PLC0415
+            from ...errors import ProviderThrottledError
 
             if exc.code == 429:
                 raise ProviderThrottledError(
@@ -111,7 +124,7 @@ class SaasLivenessClient(LivenessPort):
                 provider_id=self.PROVIDER_ID,
                 status=exc.code,
             ) from exc
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise ProviderUnavailableError(
                 "el proveedor de liveness no respondió", provider_id=self.PROVIDER_ID
             ) from exc

@@ -10,7 +10,7 @@ variable "env" {
 
 variable "tenants" {
   description = "Mapa de tenant_id a sus atributos. Los tenants con tier premium reciben cuenta de servicio dedicada, base de datos Firestore propia y vinculacion de federacion de identidades."
-  type        = map(object({
+  type = map(object({
     tier                  = optional(string, "standard")
     jurisdiction          = optional(string, "")
     allow_password_signup = optional(bool, false)
@@ -45,7 +45,7 @@ variable "tenant_scoped_bucket_names" {
 variable "data_access_audited_services" {
   description = "Servicios cuyos Data Access audit logs se habilitan. Estan apagados por defecto en GCP y sin ellos no hay traza de quien leyo datos de que tenant."
   type        = list(string)
-  default     = [
+  default = [
     "firestore.googleapis.com",
     "storage.googleapis.com",
     "cloudkms.googleapis.com",

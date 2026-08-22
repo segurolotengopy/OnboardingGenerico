@@ -24,7 +24,7 @@ banda inferior según la geometría estándar del documento.
 
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
 
 from ...domain.enums import MrzFormat
 from ...domain.mrz import MrzRecord, normalize_lines, parse_mrz
@@ -45,7 +45,7 @@ class LocalMrzReader(MrzReaderPort):
     ejemplos canónicos de ICAO (ERIKSSON ANNA MARIA en TD1, TD2 y TD3).
     """
 
-    __slots__ = ("_ocr", "_locator")
+    __slots__ = ("_locator", "_ocr")
 
     PROVIDER_ID = "local_mrz"
 
@@ -129,7 +129,6 @@ def band_locator(band_ratio: float = MRZ_BAND_HEIGHT_RATIO) -> Callable[[TenantI
         )
 
     return _locate
-
 
 
 __all__ = ["MRZ_BAND_HEIGHT_RATIO", "LocalMrzReader", "band_locator", "extract_mrz_lines"]

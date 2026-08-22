@@ -50,7 +50,7 @@ resource "aws_sqs_queue_policy" "purge_dlq" {
   queue_url = aws_sqs_queue.purge_dlq.id
 
   policy = jsonencode({
-    Version   = "2012-10-17"
+    Version = "2012-10-17"
     Statement = [
       {
         Sid       = "DenyInsecureTransport"
@@ -124,8 +124,8 @@ resource "aws_lambda_event_source_mapping" "purge" {
 
 data "aws_iam_policy_document" "purge" {
   statement {
-    sid     = "ReadCoreStream"
-    effect  = "Allow"
+    sid    = "ReadCoreStream"
+    effect = "Allow"
     actions = [
       "dynamodb:DescribeStream",
       "dynamodb:GetRecords",
@@ -136,8 +136,8 @@ data "aws_iam_policy_document" "purge" {
   }
 
   statement {
-    sid     = "EraseTenantData"
-    effect  = "Allow"
+    sid    = "EraseTenantData"
+    effect = "Allow"
     actions = [
       "dynamodb:GetItem",
       "dynamodb:Query",
@@ -150,8 +150,8 @@ data "aws_iam_policy_document" "purge" {
   # Con versionado activo, un borrado ordinario solo crea un marcador. Para
   # suprimir de verdad hay que borrar TODAS las versiones de cada objeto.
   statement {
-    sid     = "EraseObjectVersions"
-    effect  = "Allow"
+    sid    = "EraseObjectVersions"
+    effect = "Allow"
     actions = [
       "s3:DeleteObject",
       "s3:DeleteObjectVersion",
@@ -252,7 +252,7 @@ resource "aws_iam_role" "scheduler" {
   name = "${local.name}-gdpr-scheduler"
 
   assume_role_policy = jsonencode({
-    Version   = "2012-10-17"
+    Version = "2012-10-17"
     Statement = [
       {
         Effect    = "Allow"
@@ -272,7 +272,7 @@ resource "aws_iam_role_policy" "scheduler" {
   role = aws_iam_role.scheduler[0].id
 
   policy = jsonencode({
-    Version   = "2012-10-17"
+    Version = "2012-10-17"
     Statement = [
       {
         Effect   = "Allow"

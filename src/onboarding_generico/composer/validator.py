@@ -23,8 +23,9 @@ romper dependencias.
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from ..domain.enums import Capability, DecisionIssuer
 from ..errors import CapabilityNotProvisionedError, SpecValidationError
@@ -116,7 +117,7 @@ class ValidationReport:
 class CapabilityCatalog:
     """Catálogo de capacidades con sus versiones publicadas y su aplicabilidad."""
 
-    __slots__ = ("_versions", "_countries", "_documents")
+    __slots__ = ("_countries", "_documents", "_versions")
 
     def __init__(
         self,
@@ -124,9 +125,7 @@ class CapabilityCatalog:
         countries: Mapping[Capability, Sequence[str]] | None = None,
         documents: Mapping[Capability, Sequence[str]] | None = None,
     ) -> None:
-        self._versions: dict[Capability, tuple[str, ...]] = {
-            capability: ("1.0.0",) for capability in Capability
-        }
+        self._versions: dict[Capability, tuple[str, ...]] = dict.fromkeys(Capability, ("1.0.0",))
         self._versions[Capability.OCR_DOCUMENT] = ("1.0.0", "1.4.0", "1.5.2")
         self._versions[Capability.EXTRACTION_SEMANTIC] = ("2.0.0", "2.1.0")
         self._versions[Capability.MRZ_PARSE] = ("1.0.0", "1.2.0")
@@ -144,7 +143,9 @@ class CapabilityCatalog:
 
     def resolve_version(self, capability: Capability, version_range: str) -> str | None:
         """Versión concreta más alta que satisface el rango."""
-        candidates = [v for v in self._versions.get(capability, ()) if satisfies_range(v, version_range)]
+        candidates = [
+            v for v in self._versions.get(capability, ()) if satisfies_range(v, version_range)
+        ]
         if not candidates:
             return None
         return max(candidates, key=lambda v: tuple(int(p) for p in v.split(".")))
@@ -153,7 +154,9 @@ class CapabilityCatalog:
         return self._versions.get(capability, ())
 
     def supports_country(self, capability: Capability, country: str) -> bool:
-        allowed = self._countries.get(capability, CAPABILITY_COUNTRIES.get(capability, frozenset({"*"})))
+        allowed = self._countries.get(
+            capability, CAPABILITY_COUNTRIES.get(capability, frozenset({"*"}))
+        )
         return "*" in allowed or country == "*" or country in allowed
 
     def supports_document(self, capability: Capability, document_type: str) -> bool:
@@ -179,12 +182,12 @@ class FlowSpecValidator:
         warnings: list[ValidationIssue] = []
         resolved: dict[str, str] = {}
 
-        self._check_capabilities(spec, errors, resolved)          # V2
-        self._check_applicability(spec, errors)                   # V3
-        self._check_graph(spec, errors, warnings)                 # V4
-        self._check_contracts(spec, errors, warnings)             # V5
-        self._check_decision_policy(spec, errors)                 # V6
-        self._check_compliance(spec, errors, warnings)            # V7
+        self._check_capabilities(spec, errors, resolved)  # V2
+        self._check_applicability(spec, errors)  # V3
+        self._check_graph(spec, errors, warnings)  # V4
+        self._check_contracts(spec, errors, warnings)  # V5
+        self._check_decision_policy(spec, errors)  # V6
+        self._check_compliance(spec, errors, warnings)  # V7
 
         return ValidationReport(
             errors=tuple(errors), warnings=tuple(warnings), resolved_capabilities=resolved
@@ -207,7 +210,8 @@ class FlowSpecValidator:
                         severity="error",
                         message=(
                             f"el rango '{step.capability.version_range}' de "
-                            f"'{step.capability.capability}' no resuelve; versiones publicadas: {available}"
+                            f"'{step.capability.capability}' no resuelve; "
+                            f"versiones publicadas: {available}"
                         ),
                         path=f"$.steps[{index}].capability",
                     )
@@ -227,7 +231,8 @@ class FlowSpecValidator:
                             check="V3",
                             severity="error",
                             message=(
-                                f"'{capability}' no cubre el país '{country}' declarado en la resolución"
+                                f"'{capability}' no cubre el país '{country}' "
+                                "declarado en la resolución"
                             ),
                             path=f"$.steps[{index}].capability",
                         )
@@ -238,9 +243,7 @@ class FlowSpecValidator:
                         ValidationIssue(
                             check="V3",
                             severity="error",
-                            message=(
-                                f"'{capability}' no cubre el documento '{document_type}'"
-                            ),
+                            message=(f"'{capability}' no cubre el documento '{document_type}'"),
                             path=f"$.steps[{index}].capability",
                         )
                     )
@@ -252,8 +255,9 @@ class FlowSpecValidator:
                             check="V3",
                             severity="error",
                             message=(
-                                f"'{provider}' es un procesador de identidad limitado a EE. UU. y la "
-                                f"spec declara {non_us}; use OCR genérico + LLM multimodal"
+                                f"'{provider}' es un procesador de identidad "
+                                f"limitado a EE. UU. y la spec declara {non_us}; "
+                                "use OCR genérico + LLM multimodal"
                             ),
                             path=f"$.steps[{index}].provider",
                         )
@@ -329,8 +333,9 @@ class FlowSpecValidator:
                             check="V5",
                             severity="warning",
                             message=(
-                                "expresión de más de 400 caracteres: Cloud Workflows exige partirla "
-                                "en pasos 'assign'; el compilador lo hace automáticamente"
+                                "expresión de más de 400 caracteres: Cloud "
+                                "Workflows exige partirla en pasos 'assign'; "
+                                "el compilador lo hace automáticamente"
                             ),
                             path=f"$.steps[{index}].inputs.{input_name}",
                         )
@@ -371,8 +376,10 @@ class FlowSpecValidator:
                                     check="V5",
                                     severity="error",
                                     message=(
-                                        f"se referencia la salida de '{source_id}' sin declararlo en "
-                                        "'depends_on'; el orden de ejecución no estaría garantizado"
+                                        f"se referencia la salida de "
+                                        f"'{source_id}' sin declararlo en "
+                                        "'depends_on'; el orden de ejecución "
+                                        "no estaría garantizado"
                                     ),
                                     path=path,
                                 )
@@ -380,7 +387,9 @@ class FlowSpecValidator:
                             continue
                         if len(pieces) >= 3 and pieces[1] == "output":
                             attribute = pieces[2]
-                            outputs = self.catalog.outputs(spec.step(source_id).capability.capability)
+                            outputs = self.catalog.outputs(
+                                spec.step(source_id).capability.capability
+                            )
                             if outputs and attribute not in outputs:
                                 errors.append(
                                     ValidationIssue(
@@ -427,18 +436,17 @@ class FlowSpecValidator:
     def _check_compliance(
         self, spec: FlowSpec, errors: list[ValidationIssue], warnings: list[ValidationIssue]
     ) -> None:
-        prohibited = sorted(
-            set(spec.resolution.countries) & DELEGATION_PROHIBITED_COUNTRIES
-        )
+        prohibited = sorted(set(spec.resolution.countries) & DELEGATION_PROHIBITED_COUNTRIES)
         if spec.decision_policy.issuer is DecisionIssuer.MIDDLEWARE and prohibited:
             errors.append(
                 ValidationIssue(
                     check="V7",
                     severity="error",
                     message=(
-                        f"'issuer: MIDDLEWARE' es incompatible con {prohibited}: el art. 32(II) del "
-                        "Instructivo UIF de Bolivia prohíbe delegar en terceros la Debida Diligencia "
-                        "del cliente; use 'SIGNALS_ONLY' o 'REQUESTER_CONFIRMS'"
+                        f"'issuer: MIDDLEWARE' es incompatible con {prohibited}: "
+                        "el art. 32(II) del Instructivo UIF de Bolivia prohíbe "
+                        "delegar en terceros la Debida Diligencia del cliente; "
+                        "use 'SIGNALS_ONLY' o 'REQUESTER_CONFIRMS'"
                     ),
                     path="$.decision_policy.issuer",
                 )
@@ -455,15 +463,19 @@ class FlowSpecValidator:
                         check="V7",
                         severity="warning",
                         message=(
-                            "paso no compensable en un nivel temprano del DAG: gasta cuota y dinero "
-                            "antes de saber si la sesión va a completarse; considere moverlo más tarde"
+                            "paso no compensable en un nivel temprano del DAG: "
+                            "gasta cuota y dinero antes de saber si la sesión "
+                            "va a completarse; considere moverlo más tarde"
                         ),
                         path=f"$.steps[{index}].id",
                     )
                 )
 
         for index, step in enumerate(spec.steps):
-            if step.capability.capability is Capability.BIOMETRICS_LIVENESS and step.retries.max_attempts > 1:
+            if (
+                step.capability.capability is Capability.BIOMETRICS_LIVENESS
+                and step.retries.max_attempts > 1
+            ):
                 warnings.append(
                     ValidationIssue(
                         check="V7",
@@ -492,7 +504,11 @@ def assert_tenant_provisioned(
     """
     authorized = set(tenant_capabilities)
     missing = sorted(
-        {str(s.capability.capability) for s in spec.steps if s.capability.capability not in authorized}
+        {
+            str(s.capability.capability)
+            for s in spec.steps
+            if s.capability.capability not in authorized
+        }
     )
     if missing:
         raise CapabilityNotProvisionedError(
@@ -514,17 +530,19 @@ def assert_tenant_provisioned(
 
 
 def _find_cycle(spec: FlowSpec) -> list[str]:
-    graph = {step.step_id: [d for d in step.depends_on if d in set(spec.step_ids)] for step in spec.steps}
-    state: dict[str, int] = {node: 0 for node in graph}
+    graph = {
+        step.step_id: [d for d in step.depends_on if d in set(spec.step_ids)] for step in spec.steps
+    }
+    state: dict[str, int] = dict.fromkeys(graph, 0)
 
     def visit(node: str, path: list[str]) -> list[str]:
         if state[node] == 1:
-            return path[path.index(node) :] + [node]
+            return [*path[path.index(node) :], node]
         if state[node] == 2:
             return []
         state[node] = 1
         for neighbour in graph[node]:
-            found = visit(neighbour, path + [node])
+            found = visit(neighbour, [*path, node])
             if found:
                 return found
         state[node] = 2
@@ -548,8 +566,8 @@ def _depths(spec: FlowSpec) -> dict[str, int]:
         if node in seen or node not in graph:
             return 0
         dependencies = graph[node]
-        value = 0 if not dependencies else 1 + max(
-            resolve(dep, seen | {node}) for dep in dependencies
+        value = (
+            0 if not dependencies else 1 + max(resolve(dep, seen | {node}) for dep in dependencies)
         )
         depth[node] = value
         return value

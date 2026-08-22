@@ -16,8 +16,9 @@ puede ser **neto negativo**, así que la caché es opcional por tenant.
 from __future__ import annotations
 
 import abc
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from ..domain.value_objects import Confidence, ObjectRef, TenantId
 

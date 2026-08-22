@@ -44,9 +44,9 @@ provider "aws" {
 
   default_tags {
     tags = {
-      project = "onboarding-generico"
-      env     = var.env
-      owner   = var.owner
+      project               = "onboarding-generico"
+      env                   = var.env
+      owner                 = var.owner
       "data-classification" = "internal"
       "cost-center"         = var.cost_center
     }

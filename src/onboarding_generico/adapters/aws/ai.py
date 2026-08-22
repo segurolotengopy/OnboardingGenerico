@@ -18,7 +18,8 @@ Tres advertencias que este módulo respeta y que conviene no perder:
 
 from __future__ import annotations
 
-from typing import Any, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 from ...config import Settings
 from ...domain.value_objects import Confidence, ObjectRef, TenantId
@@ -56,7 +57,7 @@ class TextractOcr(OcrPort):
             response = client("textract", self._settings.region).detect_document_text(
                 Document={"S3Object": {"Bucket": ref.bucket, "Name": ref.key}}
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise ProviderUnavailableError(
                 "Textract no respondió", provider_id=self.PROVIDER_ID
             ) from exc
@@ -95,7 +96,7 @@ class BedrockLlm(LlmPort):
     diferenciador del producto es portable.
     """
 
-    __slots__ = ("_settings", "_model_id")
+    __slots__ = ("_model_id", "_settings")
 
     PROVIDER_ID = "bedrock_claude"
 
@@ -113,7 +114,7 @@ class BedrockLlm(LlmPort):
         template: str = "",
         enable_prompt_cache: bool = False,
     ) -> ExtractionResult:
-        import json  # noqa: PLC0415
+        import json
 
         content: list[dict[str, Any]] = [{"type": "text", "text": prompt}]
         for ref in image_refs:
@@ -148,7 +149,7 @@ class BedrockLlm(LlmPort):
             response = client("bedrock-runtime", self._settings.region).invoke_model(
                 modelId=self._model_id, body=json.dumps(body)
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise ProviderUnavailableError(
                 "Bedrock no respondió", provider_id=self.PROVIDER_ID
             ) from exc

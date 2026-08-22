@@ -12,8 +12,9 @@ construye ese contenedor concreto.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any
 
 from .composer.compiler import FlowCompiler
 from .composer.registry import FlowSpecRegistry
@@ -126,7 +127,9 @@ class Container:
         }
 
 
-def build_container(settings: Settings | None = None, *, env: Mapping[str, str] | None = None) -> Container:
+def build_container(
+    settings: Settings | None = None, *, env: Mapping[str, str] | None = None
+) -> Container:
     """Construye el contenedor según `OG_CLOUD_PROVIDER`."""
     resolved = settings or load_settings(env)
     configure_logging(
@@ -380,8 +383,8 @@ def provision_demo_tenant(
             "el aprovisionamiento de demostración exige adaptadores en memoria",
             cloud_provider=container.settings.cloud_provider,
         )
-    config.register_tenant(tenant_id, {"jurisdiction": jurisdiction})  # type: ignore[attr-defined]
-    authorization.grant(principal, tenant_id, "*")  # type: ignore[attr-defined]
+    config.register_tenant(tenant_id, {"jurisdiction": jurisdiction})
+    authorization.grant(principal, tenant_id, "*")
 
     catalog: tuple[tuple[Capability, str, tuple[str, ...]], ...] = (
         (Capability.DOCUMENT_ALIGNMENT, "opencv_alignment", ()),
@@ -398,7 +401,7 @@ def provision_demo_tenant(
             container.capabilities.register_provider(
                 capability,
                 ProviderRef(provider_id=provider_id, version="1.0.0"),
-                countries=list(countries) + ["*"],
+                countries=[*list(countries), "*"],
                 document_types=["*"],
                 active=True,
             )
