@@ -66,9 +66,21 @@ jobs:
     permissions: { contents: read, security-events: write }
     steps:
       - uses: actions/checkout@v5
+      - name: Normalizar la referencia de la imagen
+        # Las referencias OCI solo admiten minúsculas y `github.repository`
+        # conserva las mayúsculas del nombre del repositorio. Al publicar,
+        # `docker/metadata-action` las convierte por su cuenta, así que la
+        # referencia construida a mano aquí no coincidía con la imagen real y
+        # Trivy abortaba con "could not parse reference". El valor se pasa por
+        # variable de entorno, no interpolado en el script, para que el nombre
+        # del repositorio no pueda inyectar comandos.
+        env:
+          REPOSITORIO: ${{ github.repository }}
+          REVISION: ${{ github.sha }}
+        run: echo "IMAGEN=ghcr.io/${REPOSITORIO,,}/api:sha-${REVISION}" >> "$GITHUB_ENV"
       - uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ghcr.io/${{ github.repository }}/api:sha-${{ github.sha }}
+          image-ref: ${{ env.IMAGEN }}
           format: sarif
           output: trivy.sarif
           severity: CRITICAL,HIGH
