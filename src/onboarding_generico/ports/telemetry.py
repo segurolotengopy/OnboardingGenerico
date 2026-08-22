@@ -9,22 +9,28 @@ dimensión `subject_ref` convertiría la telemetría en un índice de personas.
 from __future__ import annotations
 
 import abc
-from typing import Mapping
+from collections.abc import Mapping
 
 
 class TelemetryPort(abc.ABC):
     """Contadores, histogramas y medidores con dimensiones acotadas."""
 
     @abc.abstractmethod
-    def increment(self, name: str, *, value: int = 1, dimensions: Mapping[str, str] | None = None) -> None:
+    def increment(
+        self, name: str, *, value: int = 1, dimensions: Mapping[str, str] | None = None
+    ) -> None:
         """Incrementa un contador."""
 
     @abc.abstractmethod
-    def observe(self, name: str, value: float, *, dimensions: Mapping[str, str] | None = None) -> None:
+    def observe(
+        self, name: str, value: float, *, dimensions: Mapping[str, str] | None = None
+    ) -> None:
         """Registra una observación en un histograma (latencia, puntuación)."""
 
     @abc.abstractmethod
-    def gauge(self, name: str, value: float, *, dimensions: Mapping[str, str] | None = None) -> None:
+    def gauge(
+        self, name: str, value: float, *, dimensions: Mapping[str, str] | None = None
+    ) -> None:
         """Fija el valor de un medidor (tamaño de cola, sesiones activas)."""
 
     @abc.abstractmethod

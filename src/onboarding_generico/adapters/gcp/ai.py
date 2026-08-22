@@ -13,7 +13,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 from ...config import Settings
 from ...domain.value_objects import Confidence, ObjectRef, TenantId
@@ -26,7 +27,7 @@ from ._client import documentai_client, require
 class DocumentAiOcr(OcrPort):
     """OCR genérico con el procesador Enterprise Document OCR."""
 
-    __slots__ = ("_settings", "_processor_id", "_location")
+    __slots__ = ("_location", "_processor_id", "_settings")
 
     PROVIDER_ID = "documentai_ocr"
 
@@ -59,7 +60,7 @@ class DocumentAiOcr(OcrPort):
                     "gcs_document": {"gcs_uri": ref.uri, "mime_type": ref.content_type},
                 }
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise ProviderUnavailableError(
                 "Document AI no respondió", provider_id=self.PROVIDER_ID
             ) from exc
@@ -105,7 +106,7 @@ class ClaudeOnVertexLlm(LlmPort):
     por tenant y no globalmente.
     """
 
-    __slots__ = ("_settings", "_model_id", "_location")
+    __slots__ = ("_location", "_model_id", "_settings")
 
     PROVIDER_ID = "vertex_claude"
 
@@ -125,7 +126,9 @@ class ClaudeOnVertexLlm(LlmPort):
         enable_prompt_cache: bool = False,
     ) -> ExtractionResult:
         module = require("anthropic", "anthropic[vertex]")
-        client = module.AnthropicVertex(region=self._location, project_id=self._settings.gcp_project)
+        client = module.AnthropicVertex(
+            region=self._location, project_id=self._settings.gcp_project
+        )
 
         content: list[dict[str, Any]] = [{"type": "text", "text": prompt}]
         for ref in image_refs:
@@ -154,7 +157,7 @@ class ClaudeOnVertexLlm(LlmPort):
                 ],
                 tool_choice={"type": "tool", "name": "emit_identity_claims"},
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise ProviderUnavailableError(
                 "Vertex AI no respondió", provider_id=self.PROVIDER_ID
             ) from exc

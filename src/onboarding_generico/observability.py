@@ -21,10 +21,11 @@ import json
 import logging
 import sys
 import uuid
+from collections.abc import Iterator, Mapping, MutableMapping
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Iterator, Mapping, MutableMapping
+from datetime import UTC, datetime
+from typing import Any
 
 #: Claves cuyo valor jamás se escribe en un log.
 PII_KEYS: frozenset[str] = frozenset(
@@ -105,9 +106,14 @@ class CorrelationContext:
         return data
 
 
+#: Contexto por defecto cuando nadie abrió un `correlation_scope`. Es una
+#: instancia congelada y compartida: `CorrelationContext` es un dataclass
+#: `frozen=True`, así que no hay estado mutable compartido entre corrutinas.
+_UNBOUND_CONTEXT: CorrelationContext = CorrelationContext(correlation_id="unbound")
+
 _context: contextvars.ContextVar[CorrelationContext] = contextvars.ContextVar(
     "og_correlation_context",
-    default=CorrelationContext(correlation_id="unbound"),
+    default=_UNBOUND_CONTEXT,
 )
 
 
@@ -189,14 +195,16 @@ def redact(value: Any, *, _depth: int = 0) -> Any:
 class JsonFormatter(logging.Formatter):
     """Formateador de una línea JSON por registro, con redacción aplicada."""
 
-    def __init__(self, *, service_name: str = "onboarding-generico", redact_pii: bool = True) -> None:
+    def __init__(
+        self, *, service_name: str = "onboarding-generico", redact_pii: bool = True
+    ) -> None:
         super().__init__()
         self.service_name = service_name
         self.redact_pii = redact_pii
 
-    def format(self, record: logging.LogRecord) -> str:  # noqa: A003 - API de logging
+    def format(self, record: logging.LogRecord) -> str:
         payload: dict[str, Any] = {
-            "timestamp": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),
+            "timestamp": datetime.fromtimestamp(record.created, tz=UTC).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "service": self.service_name,

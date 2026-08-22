@@ -17,8 +17,9 @@ from __future__ import annotations
 import hashlib
 import threading
 import time
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from ...domain.value_objects import ObjectRef, TenantId
 from ...errors import IntegrityError, ObjectNotFoundError, TenantIsolationError
@@ -38,7 +39,7 @@ class _StoredObject:
 class InMemoryObjectStorage(ObjectStorage):
     """Almacén de objetos con prefijo obligatorio por tenant."""
 
-    __slots__ = ("bucket", "_objects", "_presigned", "_lock", "_clock")
+    __slots__ = ("_clock", "_lock", "_objects", "_presigned", "bucket")
 
     def __init__(self, bucket: str = "og-dev-artifacts", clock: Any = None) -> None:
         self.bucket = bucket
@@ -138,9 +139,9 @@ class InMemoryObjectStorage(ObjectStorage):
         max_bytes: int | None = None,
     ) -> str:
         scoped = self._scoped_key(tenant_id, key)
-        token = hashlib.sha256(
-            f"put:{scoped}:{self._clock()}:{ttl_seconds}".encode("utf-8")
-        ).hexdigest()[:32]
+        token = hashlib.sha256(f"put:{scoped}:{self._clock()}:{ttl_seconds}".encode()).hexdigest()[
+            :32
+        ]
         with self._lock:
             self._presigned[token] = (scoped, self._clock() + ttl_seconds, "PUT")
         limit = f"&max_bytes={max_bytes}" if max_bytes else ""
@@ -148,9 +149,9 @@ class InMemoryObjectStorage(ObjectStorage):
 
     def presign_get(self, tenant_id: TenantId, ref: ObjectRef, *, ttl_seconds: int = 900) -> str:
         scoped = self._assert_in_scope(tenant_id, ref)
-        token = hashlib.sha256(
-            f"get:{scoped}:{self._clock()}:{ttl_seconds}".encode("utf-8")
-        ).hexdigest()[:32]
+        token = hashlib.sha256(f"get:{scoped}:{self._clock()}:{ttl_seconds}".encode()).hexdigest()[
+            :32
+        ]
         with self._lock:
             self._presigned[token] = (scoped, self._clock() + ttl_seconds, "GET")
         return f"{SCHEME}://{self.bucket}/{scoped}?token={token}&op=get"

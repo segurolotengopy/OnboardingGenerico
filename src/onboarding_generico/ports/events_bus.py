@@ -14,8 +14,9 @@ orden por clave de partición y retiene 24 h. En consecuencia:
 from __future__ import annotations
 
 import abc
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from ..domain.value_objects import TenantId
 

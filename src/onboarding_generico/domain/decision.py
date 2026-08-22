@@ -15,9 +15,10 @@ Propiedades exigidas:
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any
 
 from ..errors import ValidationError
 from .enums import (
@@ -73,7 +74,13 @@ class DecisionThresholds:
                 "el piso de la banda gris no puede superar el umbral de coincidencia",
                 field="face_match_grey_band_low",
             )
-        for name in ("face_match_min", "face_match_grey_band_low", "liveness_min", "ocr_min_field_confidence", "forgery_max_score"):
+        for name in (
+            "face_match_min",
+            "face_match_grey_band_low",
+            "liveness_min",
+            "ocr_min_field_confidence",
+            "forgery_max_score",
+        ):
             value = getattr(self, name)
             if not 0.0 <= value <= 1.0:
                 raise ValidationError(f"{name} debe estar en [0, 1]", field=name)
@@ -81,7 +88,7 @@ class DecisionThresholds:
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> DecisionThresholds:
         """Construye desde la configuración del tenant, ignorando claves ajenas."""
-        known = {f for f in cls.__dataclass_fields__}  # noqa: SLF001 - API pública de dataclass
+        known = set(cls.__dataclass_fields__)
         return cls(**{k: v for k, v in data.items() if k in known})
 
 
@@ -154,7 +161,7 @@ _OUTCOME_SEVERITY: dict[DecisionOutcome, int] = {
 class DecisionEngine:
     """Agrega evidencias y emite un veredicto con razones auditables."""
 
-    __slots__ = ("thresholds", "issuer", "required_kinds")
+    __slots__ = ("issuer", "required_kinds", "thresholds")
 
     def __init__(
         self,
@@ -491,10 +498,6 @@ def _index_by_kind(evidences: Sequence[Evidence]) -> dict[EvidenceKind, tuple[Ev
 
 
 __all__ = [
-    "Decision",
-    "DecisionEngine",
-    "DecisionReason",
-    "DecisionThresholds",
     "REASON_AML_HIT",
     "REASON_DEFAULT_POLICY",
     "REASON_DOC_EXPIRED",
@@ -509,4 +512,8 @@ __all__ = [
     "REASON_PAD_FAILED",
     "REASON_PAD_INJECTION",
     "REASON_REGISTRY_MISMATCH",
+    "Decision",
+    "DecisionEngine",
+    "DecisionReason",
+    "DecisionThresholds",
 ]

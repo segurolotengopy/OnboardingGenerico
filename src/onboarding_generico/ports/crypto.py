@@ -12,7 +12,8 @@ fuga de datos.
 from __future__ import annotations
 
 import abc
-from typing import Any, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 from ..domain.value_objects import TenantId
 

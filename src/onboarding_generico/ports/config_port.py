@@ -8,7 +8,8 @@ por Terraform o un documento de configuración con caché en proceso.
 from __future__ import annotations
 
 import abc
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 from ..domain.enums import DecisionIssuer
 from ..domain.value_objects import TenantId

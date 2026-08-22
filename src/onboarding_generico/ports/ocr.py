@@ -14,8 +14,8 @@ confianza, sin ninguna semántica de documento de identidad.
 from __future__ import annotations
 
 import abc
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Sequence
 
 from ..domain.value_objects import Confidence, ObjectRef, TenantId
 

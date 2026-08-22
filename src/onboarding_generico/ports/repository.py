@@ -14,8 +14,9 @@ adaptador de AWS añade `dynamodb:LeadingKeys` como refuerzo redundante.
 from __future__ import annotations
 
 import abc
+from collections.abc import Mapping, Sequence
 from datetime import datetime
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from ..domain.enums import Capability, SessionState
 from ..domain.events import AuditEvent
@@ -39,7 +40,9 @@ class SessionRepository(abc.ABC):
         """Como `get`, pero devuelve `None` en vez de lanzar."""
 
     @abc.abstractmethod
-    def save(self, session: OnboardingSession, *, expected_version: int | None = None) -> OnboardingSession:
+    def save(
+        self, session: OnboardingSession, *, expected_version: int | None = None
+    ) -> OnboardingSession:
         """Guarda con bloqueo optimista y devuelve el agregado persistido."""
 
     @abc.abstractmethod
@@ -54,7 +57,9 @@ class SessionRepository(abc.ABC):
         """Sesiones del tenant en un estado dado, de la más antigua a la más nueva."""
 
     @abc.abstractmethod
-    def find_by_external_ref(self, tenant_id: TenantId, external_ref: str) -> OnboardingSession | None:
+    def find_by_external_ref(
+        self, tenant_id: TenantId, external_ref: str
+    ) -> OnboardingSession | None:
         """Busca por el identificador propio del requirente."""
 
     @abc.abstractmethod
@@ -177,7 +182,9 @@ class IdempotencyStore(abc.ABC):
     """
 
     @abc.abstractmethod
-    def reserve(self, tenant_id: TenantId, scope: str, key: str, *, ttl_seconds: int = 86_400) -> bool:
+    def reserve(
+        self, tenant_id: TenantId, scope: str, key: str, *, ttl_seconds: int = 86_400
+    ) -> bool:
         """`True` si la clave se reservó ahora; `False` si ya existía."""
 
     @abc.abstractmethod

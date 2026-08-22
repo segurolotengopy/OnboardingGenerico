@@ -36,8 +36,9 @@ from __future__ import annotations
 
 import threading
 import time
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass
-from typing import Any, Callable, Generic, Iterator, Mapping, TypeVar
+from typing import Any, Generic, TypeVar
 
 from ..ports.crypto import MaterialCache
 
@@ -66,7 +67,15 @@ class AtomicMaterialCache(MaterialCache, Generic[T]):
     la caché en un cuello de botella global.
     """
 
-    __slots__ = ("_ttl", "_max_entries", "_clock", "_entries", "_global_lock", "_key_locks", "_stats")
+    __slots__ = (
+        "_clock",
+        "_entries",
+        "_global_lock",
+        "_key_locks",
+        "_max_entries",
+        "_stats",
+        "_ttl",
+    )
 
     def __init__(
         self,
@@ -89,7 +98,7 @@ class AtomicMaterialCache(MaterialCache, Generic[T]):
 
     # -- API del puerto ----------------------------------------------------
 
-    def get_or_load(self, key: str, loader: Callable[[], T]) -> T:  # type: ignore[override]
+    def get_or_load(self, key: str, loader: Callable[[], T]) -> T:
         """Devuelve el valor cacheado o lo carga **una sola vez**.
 
         Doble comprobación: la primera sin cerrojo de clave (camino rápido) y
@@ -191,7 +200,7 @@ class CachedKeyProvider:
     rompería la seguridad del cifrado.
     """
 
-    __slots__ = ("_inner", "_cache")
+    __slots__ = ("_cache", "_inner")
 
     def __init__(self, inner: Any, cache: AtomicMaterialCache[bytes] | None = None) -> None:
         self._inner = inner
@@ -202,7 +211,9 @@ class CachedKeyProvider:
 
     def derive_key(self, tenant_id: Any, *, purpose: str, length: int = 32) -> bytes:
         key = tenant_cache_key(str(tenant_id), f"{purpose}:{length}")
-        return self._cache.get_or_load(key, lambda: self._inner.derive_key(tenant_id, purpose=purpose, length=length))
+        return self._cache.get_or_load(
+            key, lambda: self._inner.derive_key(tenant_id, purpose=purpose, length=length)
+        )
 
     def shred_tenant_key(self, tenant_id: Any) -> bool:
         """Destruye la clave e **invalida la caché** del tenant en el mismo acto.

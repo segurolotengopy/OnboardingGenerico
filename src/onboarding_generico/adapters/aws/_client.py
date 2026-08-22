@@ -18,7 +18,7 @@ EXTRA: str = "aws"
 def require_boto3() -> Any:
     """Importa `boto3` o lanza `MissingDependencyError` con instrucción precisa."""
     try:
-        import boto3  # noqa: PLC0415 - import diferido a propósito
+        import boto3  # import diferido a propósito: ver regla 3 de CLAUDE.md
     except ImportError as exc:  # pragma: no cover - depende del entorno
         raise MissingDependencyError("boto3", EXTRA) from exc
     return boto3

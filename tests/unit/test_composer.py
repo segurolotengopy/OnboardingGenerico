@@ -38,7 +38,6 @@ from onboarding_generico.errors import (
     SpecValidationError,
 )
 
-
 # --------------------------------------------------------------------------
 # Parseo (V1)
 # --------------------------------------------------------------------------
@@ -211,7 +210,7 @@ def test_v5_rejects_reference_to_undeclared_output(flow_spec_document: dict[str,
 
 
 def test_v5_rejects_reference_without_declared_dependency(
-    flow_spec_document: dict[str, Any]
+    flow_spec_document: dict[str, Any],
 ) -> None:
     document = copy.deepcopy(flow_spec_document)
     document["steps"][0]["inputs"]["ref"] = "${steps.liveness_check.output.score}"
@@ -342,9 +341,7 @@ def test_specificity_beats_priority(
 def test_higher_semver_wins_for_the_same_key(flow_spec_document: dict[str, Any]) -> None:
     newer = copy.deepcopy(flow_spec_document)
     newer["metadata"]["version"] = "1.1.0"
-    registry = FlowSpecRegistry(
-        [FlowSpec.parse(flow_spec_document), FlowSpec.parse(newer)]
-    )
+    registry = FlowSpecRegistry([FlowSpec.parse(flow_spec_document), FlowSpec.parse(newer)])
     resolved = registry.resolve(tenant_id="acme", country="MX", document_type="INE_2019")
     assert resolved.spec.version == "1.1.0"
     assert registry.list_versions("GLOBAL", "Standard-eKYC-Latam") == ("1.0.0", "1.1.0")
@@ -430,7 +427,8 @@ def test_emit_asl_structure(flow_spec: FlowSpec) -> None:
     assert branches == {"data_extraction_ocr", "liveness_check"}
 
     liveness_state = next(
-        b["States"]["liveness_check"] for b in states["Wave1"]["Branches"]
+        b["States"]["liveness_check"]
+        for b in states["Wave1"]["Branches"]
         if b["StartAt"] == "liveness_check"
     )
     assert liveness_state["Resource"].endswith(".waitForTaskToken")
@@ -441,7 +439,8 @@ def test_asl_injects_retry_and_fallback_catch(flow_spec: FlowSpec) -> None:
     plan = FlowCompiler().compile(flow_spec)
     states = emit_asl(plan)["States"]
     ocr_state = next(
-        b["States"]["data_extraction_ocr"] for b in states["Wave1"]["Branches"]
+        b["States"]["data_extraction_ocr"]
+        for b in states["Wave1"]["Branches"]
         if b["StartAt"] == "data_extraction_ocr"
     )
     assert ocr_state["Retry"][0]["MaxAttempts"] == 2
@@ -491,7 +490,7 @@ def test_quota_check_passes_for_the_reference_spec(flow_spec: FlowSpec) -> None:
 
 
 def test_compiler_warns_when_a_wave_exceeds_ten_branches(
-    flow_spec_document: dict[str, Any]
+    flow_spec_document: dict[str, Any],
 ) -> None:
     """Cloud Workflows admite 10 ramas por paso `parallel`."""
     document = copy.deepcopy(flow_spec_document)
@@ -507,4 +506,3 @@ def test_compiler_warns_when_a_wave_exceeds_ten_branches(
     # Y el YAML agrupa la ola en bloques `parallel` de como mucho 10 ramas.
     yaml = emit_cloud_workflows(plan)
     assert yaml.count("parallel:") >= 2
-

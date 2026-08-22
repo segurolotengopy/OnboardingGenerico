@@ -10,7 +10,7 @@ tope de 512 KB acumulados por ejecución (el límite dominante) y Step Functions
 from __future__ import annotations
 
 import abc
-from typing import Mapping, Sequence
+from collections.abc import Mapping, Sequence
 
 from ..domain.value_objects import ObjectRef, TenantId
 

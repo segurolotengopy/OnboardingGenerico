@@ -14,7 +14,8 @@ sí admite hasta un año de espera con tokens ilimitados y `SendTaskHeartbeat`.
 
 from __future__ import annotations
 
-from typing import Any, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 from ...config import Settings
 from ...domain.value_objects import SessionId, TenantId, utc_now
@@ -60,7 +61,7 @@ class StepFunctionsSaga(OnboardingSagaPort):
         plan: Mapping[str, Any],
         context: Mapping[str, Any] | None = None,
     ) -> SagaHandle:
-        import json  # noqa: PLC0415
+        import json
 
         payload = {
             "tenant_id": tenant_id.value,
@@ -83,7 +84,7 @@ class StepFunctionsSaga(OnboardingSagaPort):
                 name=f"{tenant_id.value}-{session_id.value}",
                 input=encoded,
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise ProviderUnavailableError(
                 "Step Functions no respondió", provider_id="stepfunctions"
             ) from exc
@@ -107,7 +108,7 @@ class StepFunctionsSaga(OnboardingSagaPort):
         )
 
     def resume(self, token: ResumeToken, payload: Mapping[str, Any]) -> SagaHandle:
-        import json  # noqa: PLC0415
+        import json
 
         client("stepfunctions", self._settings.region).send_task_success(
             taskToken=token.value, output=json.dumps(dict(payload))
@@ -156,7 +157,7 @@ class EventBridgeBus(EventBusPort):
     escrito para una nube sirve para la otra.
     """
 
-    __slots__ = ("_settings", "_bus_name")
+    __slots__ = ("_bus_name", "_settings")
 
     def __init__(self, settings: Settings, bus_name: str = "") -> None:
         self._settings = settings
@@ -166,7 +167,7 @@ class EventBridgeBus(EventBusPort):
         return self.publish_batch([event])[0]
 
     def publish_batch(self, events: Sequence[IntegrationEvent]) -> tuple[str, ...]:
-        import json  # noqa: PLC0415
+        import json
 
         if not events:
             return ()

@@ -18,8 +18,8 @@ Entre versiones de la misma clave gana siempre la **semver mayor**.
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from typing import Iterable, Mapping
 
 from ..domain.value_objects import FlowSpecRef
 from ..errors import AmbiguousFlowSpecError, NoApplicableFlowSpecError, SpecValidationError
@@ -185,9 +185,7 @@ class FlowSpecRegistry:
         for spec in self._specs.values():
             if spec.tenant not in {tenant_id, GLOBAL_TENANT}:
                 continue
-            if not spec.resolution.matches(
-                country=country, document_type=document_type, tier=tier
-            ):
+            if not spec.resolution.matches(country=country, document_type=document_type, tier=tier):
                 continue
             identity = (spec.tenant, spec.name)
             current = latest.get(identity)
@@ -238,7 +236,7 @@ def build_registry_from_documents(documents: Iterable[Mapping[str, object]]) -> 
     """Construye el registro a partir de documentos JSON ya cargados."""
     registry = FlowSpecRegistry()
     for document in documents:
-        registry.publish(FlowSpec.parse(document))  # type: ignore[arg-type]
+        registry.publish(FlowSpec.parse(document))
     return registry
 
 

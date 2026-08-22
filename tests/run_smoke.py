@@ -25,9 +25,10 @@ import sys
 import threading
 import time
 import traceback
+from collections.abc import Callable
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
@@ -113,15 +114,10 @@ FIXTURES = ROOT / "tests" / "fixtures"
 PRINCIPAL = "svc-requester"
 
 TD1 = (
-    "I<UTOD231458907<<<<<<<<<<<<<<<\n"
-    "7408122F1204159UTO<<<<<<<<<<<6\n"
-    "ERIKSSON<<ANNA<MARIA<<<<<<<<<<"
+    "I<UTOD231458907<<<<<<<<<<<<<<<\n7408122F1204159UTO<<<<<<<<<<<6\nERIKSSON<<ANNA<MARIA<<<<<<<<<<"
 )
 TD2 = "I<UTOERIKSSON<<ANNA<MARIA<<<<<<<<<<<\nD231458907UTO7408122F1204159<<<<<<<6"
-TD3 = (
-    "P<UTOERIKSSON<<ANNA<MARIA<<<<<<<<<<<<<<<<<<<\n"
-    "L898902C36UTO7408122F1204159ZE184226B<<<<<10"
-)
+TD3 = "P<UTOERIKSSON<<ANNA<MARIA<<<<<<<<<<<<<<<<<<<\nL898902C36UTO7408122F1204159ZE184226B<<<<<10"
 
 CLAIMS = {
     "first_name": "ANNA MARIA",
@@ -150,7 +146,7 @@ def raises(error_type: type[BaseException], action: Callable[[], Any], label: st
         action()
     except error_type:
         return
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         raise AssertionError(f"{label}: se esperaba {error_type.__name__} y llegó {exc!r}") from exc
     raise AssertionError(f"{label}: se esperaba {error_type.__name__} y no se lanzó nada")
 
@@ -357,9 +353,7 @@ def _shredding() -> None:
 
 
 def _load_spec() -> FlowSpec:
-    document = json.loads(
-        (FIXTURES / "flow_standard_ekyc_latam.json").read_text(encoding="utf-8")
-    )
+    document = json.loads((FIXTURES / "flow_standard_ekyc_latam.json").read_text(encoding="utf-8"))
     return FlowSpec.parse(document)
 
 
@@ -378,14 +372,14 @@ def _spec_parse_and_validate() -> None:
     report = FlowSpecValidator().validate(spec)
     assert report.ok is True, [str(issue) for issue in report.errors]
     assert report.resolved_capabilities["data_extraction_ocr"].startswith("ocr.document.v1@")
-    assert any(issue.check == "V7" for issue in report.warnings), "falta el aviso del no compensable"
+    assert any(issue.check == "V7" for issue in report.warnings), (
+        "falta el aviso del no compensable"
+    )
 
 
 @check("Composición - MIDDLEWARE está prohibido con BO en la resolución")
 def _bolivia_rule() -> None:
-    document = json.loads(
-        (FIXTURES / "flow_standard_ekyc_latam.json").read_text(encoding="utf-8")
-    )
+    document = json.loads((FIXTURES / "flow_standard_ekyc_latam.json").read_text(encoding="utf-8"))
     document["decision_policy"]["issuer"] = "MIDDLEWARE"
     report = FlowSpecValidator().validate(FlowSpec.parse(document))
     assert report.ok is False
@@ -538,7 +532,9 @@ def _decision_engine() -> None:
     grey = engine.evaluate([evidence(EvidenceKind.FACE_MATCH, similarity=0.78)])
     assert grey.outcome is DecisionOutcome.MANUAL_REVIEW
     reason = grey.reasons[0]
-    assert reason.observed is not None and reason.threshold is not None, "sin trazas no es auditable"
+    assert reason.observed is not None and reason.threshold is not None, (
+        "sin trazas no es auditable"
+    )
 
     injection = engine.evaluate(
         [evidence(EvidenceKind.LIVENESS, liveness_score=0.99, injection_detected=1.0)]
@@ -653,9 +649,7 @@ def _happy_path() -> None:
     container.sessions.save(session.transition_to(SessionState.PROCESSING))
 
     decision = ResolveDecision(container).execute(
-        ResolveDecisionCommand(
-            tenant_id=tenant.value, session_id=session_id, principal=PRINCIPAL
-        )
+        ResolveDecisionCommand(tenant_id=tenant.value, session_id=session_id, principal=PRINCIPAL)
     )
     assert decision.outcome == "SIGNALS_ONLY", "el tenant está configurado como SIGNALS_ONLY"
     assert decision.state == str(SessionState.RETAINED)
@@ -672,15 +666,19 @@ def _happy_path() -> None:
 @check("Aplicación - banda gris deriva a revisión humana y se resuelve")
 def _grey_band_review() -> None:
     container, tenant = _build_container()
-    session_id = StartSession(container).execute(
-        StartSessionCommand(
-            tenant_id=tenant.value,
-            subject_ref="subj-2",
-            country="MX",
-            document_type="INE_2019",
-            principal=PRINCIPAL,
+    session_id = (
+        StartSession(container)
+        .execute(
+            StartSessionCommand(
+                tenant_id=tenant.value,
+                subject_ref="subj-2",
+                country="MX",
+                document_type="INE_2019",
+                principal=PRINCIPAL,
+            )
         )
-    ).session_id
+        .session_id
+    )
 
     _run_document(container, tenant, session_id, dict(CLAIMS))
     selfie = _run_selfie(container, tenant, session_id, similarity=0.78)
@@ -689,9 +687,7 @@ def _grey_band_review() -> None:
     session = container.sessions.get(tenant, SessionId(session_id))
     container.sessions.save(session.transition_to(SessionState.PROCESSING))
     decision = ResolveDecision(container).execute(
-        ResolveDecisionCommand(
-            tenant_id=tenant.value, session_id=session_id, principal=PRINCIPAL
-        )
+        ResolveDecisionCommand(tenant_id=tenant.value, session_id=session_id, principal=PRINCIPAL)
     )
     assert decision.review_case_id is not None
     assert decision.state == str(SessionState.PENDING_REVIEW)
@@ -720,15 +716,19 @@ def _grey_band_review() -> None:
 @check("Aplicación - discrepancia entre MRZ y extracción se reporta")
 def _cross_field_discrepancy() -> None:
     container, tenant = _build_container()
-    session_id = StartSession(container).execute(
-        StartSessionCommand(
-            tenant_id=tenant.value,
-            subject_ref="subj-3",
-            country="MX",
-            document_type="INE_2019",
-            principal=PRINCIPAL,
+    session_id = (
+        StartSession(container)
+        .execute(
+            StartSessionCommand(
+                tenant_id=tenant.value,
+                subject_ref="subj-3",
+                country="MX",
+                document_type="INE_2019",
+                principal=PRINCIPAL,
+            )
         )
-    ).session_id
+        .session_id
+    )
     result = _run_document(container, tenant, session_id, dict(CLAIMS, birth_date="1980-01-01"))
     assert "birth_date" in result.discrepancies
     assert result.steps["cross_field_validation"] == "NEGATIVE"
@@ -739,15 +739,19 @@ def _tenant_isolation() -> None:
     from onboarding_generico.errors import SessionNotFoundError, TenantIsolationError
 
     container, tenant = _build_container()
-    session_id = StartSession(container).execute(
-        StartSessionCommand(
-            tenant_id=tenant.value,
-            subject_ref="subj-4",
-            country="MX",
-            document_type="INE_2019",
-            principal=PRINCIPAL,
+    session_id = (
+        StartSession(container)
+        .execute(
+            StartSessionCommand(
+                tenant_id=tenant.value,
+                subject_ref="subj-4",
+                country="MX",
+                document_type="INE_2019",
+                principal=PRINCIPAL,
+            )
         )
-    ).session_id
+        .session_id
+    )
     other = TenantId("globex")
     assert container.sessions.find(other, SessionId(session_id)) is None
     raises(
@@ -769,15 +773,19 @@ def _purge() -> None:
     from dataclasses import replace
 
     container, tenant = _build_container()
-    session_id = StartSession(container).execute(
-        StartSessionCommand(
-            tenant_id=tenant.value,
-            subject_ref="subj-5",
-            country="MX",
-            document_type="INE_2019",
-            principal=PRINCIPAL,
+    session_id = (
+        StartSession(container)
+        .execute(
+            StartSessionCommand(
+                tenant_id=tenant.value,
+                subject_ref="subj-5",
+                country="MX",
+                document_type="INE_2019",
+                principal=PRINCIPAL,
+            )
         )
-    ).session_id
+        .session_id
+    )
     _run_document(container, tenant, session_id, dict(CLAIMS))
 
     session = container.sessions.get(tenant, SessionId(session_id))
@@ -832,7 +840,7 @@ def main() -> int:
     for name, function in _CHECKS:
         try:
             function()
-        except Exception:  # noqa: BLE001 - se reporta el detalle completo
+        except Exception:
             failures.append((name, traceback.format_exc()))
             print(f"FALLO  {name}")
         else:

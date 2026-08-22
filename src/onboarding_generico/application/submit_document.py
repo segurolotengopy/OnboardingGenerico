@@ -16,8 +16,10 @@ evidencia por paso. Puntos que conviene explicitar:
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Mapping
+from types import MappingProxyType
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from ..domain.enums import (
     ArtifactSlot,
@@ -123,8 +125,12 @@ class SubmitDocument:
 
     __slots__ = ("_c",)
 
-    #: Umbrales por defecto de calidad de captura.
-    DEFAULT_QUALITY = {"min_sharpness": 0.55, "max_glare": 0.30, "min_resolution_px": 1000}
+    #: Umbrales por defecto de calidad de captura. Es una constante de clase
+    #: compartida por todas las instancias, así que se expone como vista de
+    #: solo lectura: una escritura accidental afectaría a todos los tenants.
+    DEFAULT_QUALITY: ClassVar[Mapping[str, float]] = MappingProxyType(
+        {"min_sharpness": 0.55, "max_glare": 0.30, "min_resolution_px": 1000}
+    )
 
     def __init__(self, container: Container) -> None:
         self._c = container
@@ -146,7 +152,9 @@ class SubmitDocument:
             session = self._c.sessions.get(tenant_id, session_id)
 
             chain = AuditChain(
-                tenant_id.value, session_id.value, self._c.sessions.audit_trail(tenant_id, session_id)
+                tenant_id.value,
+                session_id.value,
+                self._c.sessions.audit_trail(tenant_id, session_id),
             )
             self._c.sessions.append_audit_event(
                 chain.append(
@@ -211,12 +219,15 @@ class SubmitDocument:
         )
         if not self._c.storage.exists(tenant_id, ref):
             raise ValidationError(
-                "el objeto no está en el almacén: cárguelo con la URL prefirmada antes de registrarlo",
+                "el objeto no está en el almacén: cárguelo con la URL "
+                "prefirmada antes de registrarlo",
                 field="object_key",
             )
         # I6: se verifica el sha256 antes de que ningún paso consuma el objeto.
         self._c.storage.get(tenant_id, ref)
-        artifact = Artifact(slot=slot, ref=ref, data_class=DataClass.DOCUMENT, captured_at=utc_now())
+        artifact = Artifact(
+            slot=slot, ref=ref, data_class=DataClass.DOCUMENT, captured_at=utc_now()
+        )
         updated = session.register_artifact(artifact)
         self._c.sessions.save(updated, expected_version=session.version)
         return ref
@@ -308,9 +319,7 @@ class SubmitDocument:
                 },
                 thresholds={"min_field_confidence": threshold},
             )
-            state = (
-                StepState.SUCCEEDED if min_confidence >= threshold else StepState.INCONCLUSIVE
-            )
+            state = StepState.SUCCEEDED if min_confidence >= threshold else StepState.INCONCLUSIVE
             session = self._advance(session, step_id, provider, state, evidence)
             steps[step_id] = str(state)
             evidences.append(evidence)
@@ -465,9 +474,7 @@ class SubmitDocument:
         if not session.can_run(step_id):
             return session
         running = session.start_step(step_id, provider)
-        return running.complete_step(
-            step_id, state=state, evidence=evidence, error_code=error_code
-        )
+        return running.complete_step(step_id, state=state, evidence=evidence, error_code=error_code)
 
     def _persist(self, session: OnboardingSession, chain: AuditChain) -> None:
         """Persiste el agregado tras la cadena de pasos.
@@ -500,7 +507,9 @@ class SubmitDocument:
             chain.append(EventType.STEP_COMPLETED, actor=command.principal, attributes=attributes)
         )
 
-    def _store_claims(self, tenant_id: TenantId, session_id: SessionId, data: Mapping[str, Any]) -> None:
+    def _store_claims(
+        self, tenant_id: TenantId, session_id: SessionId, data: Mapping[str, Any]
+    ) -> None:
         """Persiste atributos de identidad **cifrados** con el AAD del tenant."""
         encrypted = self._c.cipher.encrypt_item(tenant_id, dict(data))
         self._c.idempotency.record_result(

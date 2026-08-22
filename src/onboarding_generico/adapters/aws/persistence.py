@@ -24,8 +24,9 @@ los LSI, pero **no los GSI**.
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from datetime import datetime
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from ...config import Settings
 from ...domain.enums import Capability, SessionState
@@ -44,6 +45,7 @@ from ...ports.repository import (
 )
 from ...ports.secrets import SecretsProvider
 from ._client import client, resource
+
 
 def _pk(tenant_id: TenantId) -> str:
     """Clave de partición del dominio. **Nunca lleva PII.**"""
@@ -87,7 +89,7 @@ class DynamoDbSessionRepository(SessionRepository):
         return session
 
     def find(self, tenant_id: TenantId, session_id: SessionId) -> OnboardingSession | None:
-        from boto3.dynamodb.conditions import Key  # noqa: PLC0415
+        from boto3.dynamodb.conditions import Key
 
         response = self._table().query(
             KeyConditionExpression=Key("PK").eq(_pk(tenant_id))
@@ -140,7 +142,7 @@ class DynamoDbSessionRepository(SessionRepository):
                 kwargs["ExpressionAttributeValues"] = {":v": expected_version}
         try:
             table.put_item(**kwargs)
-        except Exception as exc:  # noqa: BLE001 - se traduce a error de dominio
+        except Exception as exc:
             from ...errors import ConcurrencyError
 
             if type(exc).__name__ == "ConditionalCheckFailedException":
@@ -157,7 +159,7 @@ class DynamoDbSessionRepository(SessionRepository):
         older_than: datetime | None = None,
     ) -> tuple[OnboardingSession, ...]:
         """PA-09: `Query` sobre GSI1 con `TENANT#<tid>#STATE#<estado>`."""
-        from boto3.dynamodb.conditions import Key  # noqa: PLC0415
+        from boto3.dynamodb.conditions import Key
 
         self._table().query(
             IndexName="GSI1",
@@ -171,9 +173,11 @@ class DynamoDbSessionRepository(SessionRepository):
             "necesita más. Probablemente haya que separar el método en dos."
         )
 
-    def find_by_external_ref(self, tenant_id: TenantId, external_ref: str) -> OnboardingSession | None:
+    def find_by_external_ref(
+        self, tenant_id: TenantId, external_ref: str
+    ) -> OnboardingSession | None:
         """PA-10: `Query` sobre GSI2 con la referencia del requirente."""
-        from boto3.dynamodb.conditions import Key  # noqa: PLC0415
+        from boto3.dynamodb.conditions import Key
 
         response = self._table().query(
             IndexName="GSI2",
@@ -187,10 +191,13 @@ class DynamoDbSessionRepository(SessionRepository):
 
     def append_audit_event(self, event: AuditEvent) -> AuditEvent:
         """PA-08: `PutItem` condicional. La política IAM **no concede `UpdateItem`**."""
+        audit_sort_key = (
+            f"AUDIT#{event.session_id}#{event.occurred_at.isoformat()}#{event.sequence:06d}"
+        )
         self._table().put_item(
             Item={
                 "PK": f"TENANT#{event.tenant_id}",
-                "SK": f"AUDIT#{event.session_id}#{event.occurred_at.isoformat()}#{event.sequence:06d}",
+                "SK": audit_sort_key,
                 "event_id": event.event_id,
                 "event_type": str(event.event_type),
                 "actor": event.actor,
@@ -205,7 +212,7 @@ class DynamoDbSessionRepository(SessionRepository):
 
     def audit_trail(self, tenant_id: TenantId, session_id: SessionId) -> tuple[AuditEvent, ...]:
         """PA-16: `Query` con `begins_with(SK,'AUDIT#<sid>#')`, en orden natural."""
-        from boto3.dynamodb.conditions import Key  # noqa: PLC0415
+        from boto3.dynamodb.conditions import Key
 
         self._table().query(
             KeyConditionExpression=Key("PK").eq(_pk(tenant_id))
@@ -227,7 +234,7 @@ class DynamoDbSessionRepository(SessionRepository):
         )
 
     def list_session_ids(self, tenant_id: TenantId, *, limit: int = 1000) -> tuple[SessionId, ...]:
-        from boto3.dynamodb.conditions import Key  # noqa: PLC0415
+        from boto3.dynamodb.conditions import Key
 
         response = self._table().query(
             KeyConditionExpression=Key("PK").eq(_pk(tenant_id)) & Key("SK").begins_with("SESSION#"),
@@ -291,7 +298,7 @@ class DynamoDbCapabilityRegistry(CapabilityRegistryRepository):
         document_type: str | None = None,
         only_active: bool = True,
     ) -> tuple[ProviderRef, ...]:
-        from boto3.dynamodb.conditions import Key  # noqa: PLC0415
+        from boto3.dynamodb.conditions import Key
 
         prefix = f"COUNTRY#{country or ''}"
         if country and document_type:
@@ -307,7 +314,9 @@ class DynamoDbCapabilityRegistry(CapabilityRegistryRepository):
         )
 
     def is_registered(self, capability: Capability, provider_id: str) -> bool:
-        return any(p.provider_id == provider_id for p in self.list_providers(capability, only_active=False))
+        return any(
+            p.provider_id == provider_id for p in self.list_providers(capability, only_active=False)
+        )
 
     def is_active(self, capability: Capability, provider_id: str) -> bool:
         return any(p.provider_id == provider_id for p in self.list_providers(capability))
@@ -343,12 +352,14 @@ class DynamoDbCapabilityRegistry(CapabilityRegistryRepository):
         )
 
     def tenant_capabilities(self, tenant_id: TenantId) -> tuple[Capability, ...]:
-        from boto3.dynamodb.conditions import Key  # noqa: PLC0415
+        from boto3.dynamodb.conditions import Key
 
-        response = resource("dynamodb", self._settings.region).Table(
-            self._settings.resource_name("core")
-        ).query(
-            KeyConditionExpression=Key("PK").eq(_pk(tenant_id)) & Key("SK").begins_with("CAP#")
+        response = (
+            resource("dynamodb", self._settings.region)
+            .Table(self._settings.resource_name("core"))
+            .query(
+                KeyConditionExpression=Key("PK").eq(_pk(tenant_id)) & Key("SK").begins_with("CAP#")
+            )
         )
         return tuple(
             Capability(str(item["SK"]).split("#")[1]) for item in response.get("Items", [])
@@ -374,7 +385,7 @@ class DynamoDbMutexLock(MutexLock):
         )
 
     def acquire(self, tenant_id: TenantId, resource_name: str, *, ttl_seconds: int = 60) -> str:
-        import time  # noqa: PLC0415
+        import time
 
         from ...errors import LockAcquisitionError
 
@@ -390,7 +401,7 @@ class DynamoDbMutexLock(MutexLock):
                 ConditionExpression="attribute_not_exists(PK) OR expires_at < :now",
                 ExpressionAttributeValues={":now": now},
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise LockAcquisitionError(
                 "el recurso está bloqueado por otro titular",
                 tenant_id=tenant_id.value,
@@ -405,12 +416,12 @@ class DynamoDbMutexLock(MutexLock):
                 ConditionExpression="fence_token = :t",
                 ExpressionAttributeValues={":t": token},
             )
-        except Exception:  # noqa: BLE001 - el token ya no era el vigente
+        except Exception:
             return False
         return True
 
     def is_held(self, tenant_id: TenantId, resource_name: str) -> bool:
-        import time  # noqa: PLC0415
+        import time
 
         response = self._table().get_item(
             Key={"PK": f"LOCK#{tenant_id.value}#{resource_name}"}, ConsistentRead=True
@@ -437,8 +448,10 @@ class DynamoDbIdempotencyStore(IdempotencyStore):
             self._settings.resource_name("core")
         )
 
-    def reserve(self, tenant_id: TenantId, scope: str, key: str, *, ttl_seconds: int = 86_400) -> bool:
-        import time  # noqa: PLC0415
+    def reserve(
+        self, tenant_id: TenantId, scope: str, key: str, *, ttl_seconds: int = 86_400
+    ) -> bool:
+        import time
 
         try:
             self._table().put_item(
@@ -449,14 +462,12 @@ class DynamoDbIdempotencyStore(IdempotencyStore):
                 },
                 ConditionExpression="attribute_not_exists(SK)",
             )
-        except Exception:  # noqa: BLE001 - ya reservada
+        except Exception:
             return False
         return True
 
     def result_for(self, tenant_id: TenantId, scope: str, key: str) -> Mapping[str, Any] | None:
-        response = self._table().get_item(
-            Key={"PK": _pk(tenant_id), "SK": f"IDEM#{scope}#{key}"}
-        )
+        response = self._table().get_item(Key={"PK": _pk(tenant_id), "SK": f"IDEM#{scope}#{key}"})
         item = response.get("Item")
         return dict(item.get("result", {})) if item and "result" in item else None
 
@@ -485,10 +496,10 @@ class DynamoDbFlowSpecRepository(FlowSpecRepository):
         self._settings = settings
 
     def publish(self, document: Mapping[str, Any]) -> str:
-        from ...composer.spec import FlowSpec  # noqa: PLC0415
+        from ...composer.spec import FlowSpec
 
         spec = FlowSpec.parse(document)
-        import json  # noqa: PLC0415
+        import json
 
         client("s3", self._settings.region).put_object(
             Bucket=self._settings.resource_name("specs"),
@@ -510,13 +521,13 @@ class DynamoDbFlowSpecRepository(FlowSpecRepository):
         return spec.content_hash
 
     def get_version(self, key: str, version: str) -> Mapping[str, Any] | None:
-        import json  # noqa: PLC0415
+        import json
 
         try:
             response = client("s3", self._settings.region).get_object(
                 Bucket=self._settings.resource_name("specs"), Key=f"{key}/{version}.json"
             )
-        except Exception:  # noqa: BLE001 - inexistente
+        except Exception:
             return None
         parsed: dict[str, Any] = json.loads(response["Body"].read())
         return parsed
@@ -529,15 +540,17 @@ class DynamoDbFlowSpecRepository(FlowSpecRepository):
         )
 
     def list_versions(self, key: str) -> tuple[str, ...]:
-        from boto3.dynamodb.conditions import Key  # noqa: PLC0415
+        from boto3.dynamodb.conditions import Key
 
         tenant = key.split(":", 1)[0]
-        response = resource("dynamodb", self._settings.region).Table(
-            self._settings.resource_name("core")
-        ).query(
-            KeyConditionExpression=Key("PK").eq(f"SPEC#{tenant}")
-            & Key("SK").begins_with(f"FLOW#{key}#v"),
-            ScanIndexForward=True,
+        response = (
+            resource("dynamodb", self._settings.region)
+            .Table(self._settings.resource_name("core"))
+            .query(
+                KeyConditionExpression=Key("PK").eq(f"SPEC#{tenant}")
+                & Key("SK").begins_with(f"FLOW#{key}#v"),
+                ScanIndexForward=True,
+            )
         )
         return tuple(str(item["SK"]).rsplit("#v", 1)[-1] for item in response.get("Items", []))
 
@@ -568,7 +581,7 @@ class S3ObjectStorage(ObjectStorage):
         content_type: str = "application/octet-stream",
         metadata: Mapping[str, str] | None = None,
     ) -> ObjectRef:
-        import hashlib  # noqa: PLC0415
+        import hashlib
 
         scoped = self._scoped(tenant_id, key)
         digest = hashlib.sha256(data).hexdigest()
@@ -593,7 +606,7 @@ class S3ObjectStorage(ObjectStorage):
         )
 
     def get(self, tenant_id: TenantId, ref: ObjectRef) -> bytes:
-        import hashlib  # noqa: PLC0415
+        import hashlib
 
         from ...errors import IntegrityError, ObjectNotFoundError, TenantIsolationError
 
@@ -605,7 +618,7 @@ class S3ObjectStorage(ObjectStorage):
             response = client("s3", self._settings.region).get_object(
                 Bucket=ref.bucket, Key=ref.key
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise ObjectNotFoundError("el objeto no existe", key=ref.key) from exc
         data: bytes = response["Body"].read()
         if hashlib.sha256(data).hexdigest() != ref.sha256:
@@ -619,7 +632,7 @@ class S3ObjectStorage(ObjectStorage):
             return False
         try:
             client("s3", self._settings.region).head_object(Bucket=ref.bucket, Key=ref.key)
-        except Exception:  # noqa: BLE001
+        except Exception:
             return False
         return True
 
@@ -697,7 +710,7 @@ class HierarchicalKeyProvider(KeyProvider):
                 CiphertextBlob=wrapped_key,
                 EncryptionContext={"tenant_id": tenant_id.value, "purpose": purpose},
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             # El contexto de cifrado es el AAD: si el tenant no cuadra, KMS
             # falla. Es el comportamiento buscado.
             raise DecryptionError(
@@ -734,9 +747,11 @@ class HierarchicalKeyProvider(KeyProvider):
         return True
 
     def is_shredded(self, tenant_id: TenantId) -> bool:
-        response = resource("dynamodb", self._settings.region).Table(
-            self._settings.resource_name("keystore")
-        ).get_item(Key={"branch-key-id": f"tenant-{tenant_id.value}", "version": "ACTIVE"})
+        response = (
+            resource("dynamodb", self._settings.region)
+            .Table(self._settings.resource_name("keystore"))
+            .get_item(Key={"branch-key-id": f"tenant-{tenant_id.value}", "version": "ACTIVE"})
+        )
         return "Item" not in response
 
 
@@ -749,7 +764,7 @@ class DbEsdkFieldCipher(FieldCipher):
     beacons como HMAC determinista con clave por tenant.
     """
 
-    __slots__ = ("_settings", "_keys")
+    __slots__ = ("_keys", "_settings")
 
     def __init__(self, settings: Settings, key_provider: KeyProvider) -> None:
         self._settings = settings
@@ -791,12 +806,14 @@ class SecretsManagerProvider(SecretsProvider):
             kwargs["VersionId"] = version
         try:
             response = client("secretsmanager", self._settings.region).get_secret_value(**kwargs)
-        except Exception as exc:  # noqa: BLE001
-            raise ConfigurationError("el secreto no existe o no es accesible", secret_name=name) from exc
+        except Exception as exc:
+            raise ConfigurationError(
+                "el secreto no existe o no es accesible", secret_name=name
+            ) from exc
         return str(response["SecretString"])
 
     def get_secret_json(self, name: str, *, version: str = "latest") -> Mapping[str, object]:
-        import json  # noqa: PLC0415
+        import json
 
         parsed = json.loads(self.get_secret(name, version=version))
         if not isinstance(parsed, dict):

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Mapping
+from collections.abc import Mapping
 
 import pytest
 
@@ -48,7 +48,9 @@ def _evidence(
     )
 
 
-def _engine(issuer: DecisionIssuer = DecisionIssuer.MIDDLEWARE, **overrides: float) -> DecisionEngine:
+def _engine(
+    issuer: DecisionIssuer = DecisionIssuer.MIDDLEWARE, **overrides: float
+) -> DecisionEngine:
     return DecisionEngine(DecisionThresholds(**overrides), issuer=issuer)  # type: ignore[arg-type]
 
 
@@ -105,7 +107,9 @@ def test_face_match_inside_grey_band_goes_to_review() -> None:
 
 
 def test_liveness_below_threshold_is_rejected() -> None:
-    decision = _engine().evaluate([_evidence(EvidenceKind.LIVENESS, scores={"liveness_score": 0.5})])
+    decision = _engine().evaluate(
+        [_evidence(EvidenceKind.LIVENESS, scores={"liveness_score": 0.5})]
+    )
     assert decision.outcome is DecisionOutcome.REJECTED
     assert REASON_PAD_FAILED in decision.reason_codes
 
@@ -162,9 +166,7 @@ def test_low_ocr_confidence_goes_to_review() -> None:
 
 
 def test_forgery_above_threshold_is_high_risk() -> None:
-    decision = _engine().evaluate(
-        [_evidence(EvidenceKind.FORGERY, scores={"forgery_score": 0.85})]
-    )
+    decision = _engine().evaluate([_evidence(EvidenceKind.FORGERY, scores={"forgery_score": 0.85})])
     assert REASON_FORGERY_SUSPECTED in decision.reason_codes
     assert decision.risk_level is RiskLevel.HIGH
 

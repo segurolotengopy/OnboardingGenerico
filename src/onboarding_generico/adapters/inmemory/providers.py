@@ -14,7 +14,8 @@ simulada; el parseo y la verificación son los de producción.
 from __future__ import annotations
 
 import threading
-from typing import Any, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 from ...domain.enums import MrzFormat
 from ...domain.mrz import MrzRecord, normalize_lines, parse_mrz
@@ -36,7 +37,7 @@ from ...ports.ocr import BoundingBox, OcrPort, OcrResult, TextBlock
 class InMemoryOcrProvider(OcrPort):
     """OCR guionizado: devuelve el texto que la prueba haya asociado al objeto."""
 
-    __slots__ = ("_scripts", "_default_text", "_lock", "provider_id", "unavailable")
+    __slots__ = ("_default_text", "_lock", "_scripts", "provider_id", "unavailable")
 
     def __init__(self, provider_id: str = "inmemory_ocr", default_text: str = "") -> None:
         self.provider_id = provider_id
@@ -90,7 +91,7 @@ class InMemoryMrzReader(MrzReaderPort):
     `domain.mrz`, sin atajos.
     """
 
-    __slots__ = ("_scripts", "_lock")
+    __slots__ = ("_lock", "_scripts")
 
     def __init__(self) -> None:
         self._scripts: dict[str, str] = {}
@@ -122,7 +123,7 @@ class InMemoryMrzReader(MrzReaderPort):
 class InMemoryDocumentAlignment(DocumentAlignmentPort):
     """Alineación guionizada con umbrales de calidad configurables."""
 
-    __slots__ = ("_scripts", "_lock", "provider_id", "default_quality")
+    __slots__ = ("_lock", "_scripts", "default_quality", "provider_id")
 
     def __init__(self, provider_id: str = "inmemory_alignment") -> None:
         self.provider_id = provider_id
@@ -153,7 +154,7 @@ class InMemoryDocumentAlignment(DocumentAlignmentPort):
 class InMemoryForgeryDetection(ForgeryDetectionPort):
     """Detección de manipulación guionizada."""
 
-    __slots__ = ("_scores", "_lock", "provider_id")
+    __slots__ = ("_lock", "_scores", "provider_id")
 
     def __init__(self, provider_id: str = "inmemory_forgery") -> None:
         self.provider_id = provider_id
@@ -181,9 +182,11 @@ class InMemoryForgeryDetection(ForgeryDetectionPort):
 class InMemoryFaceMatch(FaceMatchPort):
     """Comparación facial guionizada por par (referencia, candidato)."""
 
-    __slots__ = ("_pairs", "_quality", "_lock", "provider_id", "default_similarity")
+    __slots__ = ("_lock", "_pairs", "_quality", "default_similarity", "provider_id")
 
-    def __init__(self, provider_id: str = "inmemory_facematch", default_similarity: float = 0.91) -> None:
+    def __init__(
+        self, provider_id: str = "inmemory_facematch", default_similarity: float = 0.91
+    ) -> None:
         self.provider_id = provider_id
         self.default_similarity = default_similarity
         self._pairs: dict[tuple[str, str], float] = {}
@@ -233,7 +236,7 @@ class InMemoryLiveness(LivenessPort):
     gestionado y construirlo con modelos abiertos es riesgo regulatorio.
     """
 
-    __slots__ = ("_results", "_sessions", "_lock", "provider_id", "default_score", "_counter")
+    __slots__ = ("_counter", "_lock", "_results", "_sessions", "default_score", "provider_id")
 
     def __init__(self, provider_id: str = "inmemory_liveness", default_score: float = 0.96) -> None:
         self.provider_id = provider_id
@@ -292,9 +295,11 @@ class InMemoryLiveness(LivenessPort):
 class InMemoryLlm(LlmPort):
     """LLM guionizado que valida la salida contra el esquema declarado."""
 
-    __slots__ = ("_responses", "_lock", "provider_id", "model_id", "calls")
+    __slots__ = ("_lock", "_responses", "calls", "model_id", "provider_id")
 
-    def __init__(self, provider_id: str = "inmemory_llm", model_id: str = "claude-inmemory") -> None:
+    def __init__(
+        self, provider_id: str = "inmemory_llm", model_id: str = "claude-inmemory"
+    ) -> None:
         self.provider_id = provider_id
         self.model_id = model_id
         self._responses: dict[str, tuple[dict[str, Any], dict[str, float]]] = {}
@@ -302,7 +307,10 @@ class InMemoryLlm(LlmPort):
         self.calls: list[dict[str, Any]] = []
 
     def script(
-        self, template: str, data: Mapping[str, Any], field_confidence: Mapping[str, float] | None = None
+        self,
+        template: str,
+        data: Mapping[str, Any],
+        field_confidence: Mapping[str, float] | None = None,
     ) -> None:
         with self._lock:
             self._responses[template] = (dict(data), dict(field_confidence or {}))
@@ -331,7 +339,7 @@ class InMemoryLlm(LlmPort):
             )
         allowed = set(schema.get("properties", {}).keys()) if "properties" in schema else set(data)
         filtered = {k: v for k, v in data.items() if not allowed or k in allowed}
-        confidences = field_confidence or {k: 0.93 for k in filtered}
+        confidences = field_confidence or dict.fromkeys(filtered, 0.93)
         overall = min(confidences.values()) if confidences else 0.0
         return ExtractionResult(
             data=filtered,

@@ -10,8 +10,9 @@ from __future__ import annotations
 import hashlib
 import json
 import sys
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 import pytest
 
@@ -36,17 +37,11 @@ TEST_PRINCIPAL = "svc-requester"
 
 #: Ejemplos canónicos de ICAO 9303 (ERIKSSON ANNA MARIA).
 TD1_CANONICAL = (
-    "I<UTOD231458907<<<<<<<<<<<<<<<\n"
-    "7408122F1204159UTO<<<<<<<<<<<6\n"
-    "ERIKSSON<<ANNA<MARIA<<<<<<<<<<"
+    "I<UTOD231458907<<<<<<<<<<<<<<<\n7408122F1204159UTO<<<<<<<<<<<6\nERIKSSON<<ANNA<MARIA<<<<<<<<<<"
 )
-TD2_CANONICAL = (
-    "I<UTOERIKSSON<<ANNA<MARIA<<<<<<<<<<<\n"
-    "D231458907UTO7408122F1204159<<<<<<<6"
-)
+TD2_CANONICAL = "I<UTOERIKSSON<<ANNA<MARIA<<<<<<<<<<<\nD231458907UTO7408122F1204159<<<<<<<6"
 TD3_CANONICAL = (
-    "P<UTOERIKSSON<<ANNA<MARIA<<<<<<<<<<<<<<<<<<<\n"
-    "L898902C36UTO7408122F1204159ZE184226B<<<<<10"
+    "P<UTOERIKSSON<<ANNA<MARIA<<<<<<<<<<<<<<<<<<<\nL898902C36UTO7408122F1204159ZE184226B<<<<<10"
 )
 
 

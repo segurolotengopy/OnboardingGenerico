@@ -37,8 +37,9 @@ import base64
 import hashlib
 import hmac
 import secrets
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Any, Callable, Mapping
+from typing import Any
 
 from ..domain.value_objects import TenantId
 from ..errors import DecryptionError, KeyDestroyedError
@@ -71,7 +72,7 @@ class DeterministicRandom(SecureRandom):
     la prueba lo pide explícitamente.
     """
 
-    __slots__ = ("_seed", "_counter")
+    __slots__ = ("_counter", "_seed")
 
     def __init__(self, seed: bytes = b"og-test-seed") -> None:
         self._seed = seed
@@ -79,7 +80,7 @@ class DeterministicRandom(SecureRandom):
 
     def token_bytes(self, length: int) -> bytes:
         self._counter += 1
-        return _hkdf(self._seed, info=f"det:{self._counter}".encode("utf-8"), length=length)
+        return _hkdf(self._seed, info=f"det:{self._counter}".encode(), length=length)
 
     def token_hex(self, length: int) -> str:
         return self.token_bytes(length).hex()
@@ -109,7 +110,10 @@ def _keystream(key: bytes, nonce: bytes, length: int) -> bytes:
 
 
 def _xor(data: bytes, stream: bytes) -> bytes:
-    return bytes(a ^ b for a, b in zip(data, stream))
+    # `strict=True` a propósito: si el keystream fuera más corto que el dato,
+    # `zip` truncaría en silencio y devolvería un texto cifrado o una clave
+    # incompletos. Aquí eso es un defecto criptográfico, no un caso tolerable.
+    return bytes(a ^ b for a, b in zip(data, stream, strict=True))
 
 
 def build_aad(tenant_id: TenantId, *, context: Mapping[str, str] | None = None) -> bytes:
@@ -166,9 +170,11 @@ class LocalKeyProvider(KeyProvider):
     tenants nunca comparten material aunque compartan raíz.
     """
 
-    __slots__ = ("_root", "_random", "_shredded", "_versions")
+    __slots__ = ("_random", "_root", "_shredded", "_versions")
 
-    def __init__(self, root_key: bytes | None = None, *, random_source: SecureRandom | None = None) -> None:
+    def __init__(
+        self, root_key: bytes | None = None, *, random_source: SecureRandom | None = None
+    ) -> None:
         self._root = root_key or secrets.token_bytes(DATA_KEY_BYTES)
         self._random = random_source or SystemRandom()
         self._shredded: set[str] = set()
@@ -180,7 +186,7 @@ class LocalKeyProvider(KeyProvider):
                 "el material de clave del tenant fue destruido", tenant_id=tenant_id.value
             )
         version = self._versions.get(tenant_id.value, 1)
-        info = f"tenant={tenant_id.value}|purpose={purpose}|v={version}".encode("utf-8")
+        info = f"tenant={tenant_id.value}|purpose={purpose}|v={version}".encode()
         return _hkdf(self._root, info=info, length=DATA_KEY_BYTES)
 
     def data_key_for(self, tenant_id: TenantId, *, purpose: str = "field") -> tuple[bytes, bytes]:
@@ -204,7 +210,9 @@ class LocalKeyProvider(KeyProvider):
         return _xor(wrapped, _keystream(kek, nonce, DATA_KEY_BYTES))
 
     def derive_key(self, tenant_id: TenantId, *, purpose: str, length: int = 32) -> bytes:
-        return _hkdf(self._tenant_key(tenant_id, purpose), info=b"derive:" + purpose.encode(), length=length)
+        return _hkdf(
+            self._tenant_key(tenant_id, purpose), info=b"derive:" + purpose.encode(), length=length
+        )
 
     def rotate(self, tenant_id: TenantId) -> str:
         version = self._versions.get(tenant_id.value, 1) + 1
@@ -231,7 +239,9 @@ class EnvelopeCipher:
 
     __slots__ = ("_keys", "_random")
 
-    def __init__(self, key_provider: KeyProvider, *, random_source: SecureRandom | None = None) -> None:
+    def __init__(
+        self, key_provider: KeyProvider, *, random_source: SecureRandom | None = None
+    ) -> None:
         self._keys = key_provider
         self._random = random_source or SystemRandom()
 
@@ -298,7 +308,7 @@ class EnvelopeFieldCipher(FieldCipher):
     `SIGN_ONLY` sin que nada lo detecte.
     """
 
-    __slots__ = ("_cipher", "_policy", "_keys")
+    __slots__ = ("_cipher", "_keys", "_policy")
 
     SIGNATURE_FIELD = "__og_signature"
     ENVELOPE_PREFIX = "__og_env__"
@@ -353,7 +363,7 @@ class EnvelopeFieldCipher(FieldCipher):
         clave, así que el índice sigue siendo tenant-scoped.
         """
         key = self._beacon_key(tenant_id)
-        digest = hmac.new(key, f"{field_name}={value}".encode("utf-8"), hashlib.sha256).hexdigest()
+        digest = hmac.new(key, f"{field_name}={value}".encode(), hashlib.sha256).hexdigest()
         return f"{tenant_id.value}#{digest[:32]}"
 
     def _beacon_key(self, tenant_id: TenantId) -> bytes:
@@ -402,7 +412,7 @@ def _b64(data: bytes) -> str:
 def _unb64(data: str) -> bytes:
     try:
         return base64.b64decode(data.encode("ascii"), validate=True)
-    except Exception as exc:  # noqa: BLE001 - cualquier fallo aquí es dato corrupto
+    except Exception as exc:
         raise DecryptionError("campo base64 inválido en el sobre") from exc
 
 

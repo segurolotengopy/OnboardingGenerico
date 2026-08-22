@@ -11,9 +11,10 @@ ruta silenciosa entre estados.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
-from typing import Any, Mapping
+from typing import Any
 
 from ..errors import DomainError, InvalidStateTransitionError, ValidationError
 from .enums import (
@@ -245,7 +246,11 @@ class OnboardingSession:
         Invariante I4: una sesión terminal no admite artefactos nuevos.
         """
         self._assert_mutable("registrar artefacto")
-        if self.state not in {SessionState.CREATED, SessionState.COLLECTING, SessionState.AWAITING_SUBJECT}:
+        if self.state not in {
+            SessionState.CREATED,
+            SessionState.COLLECTING,
+            SessionState.AWAITING_SUBJECT,
+        }:
             raise DomainError(
                 "solo se aceptan artefactos durante la captura",
                 state=str(self.state),
@@ -254,12 +259,14 @@ class OnboardingSession:
         state = SessionState.COLLECTING if self.state is SessionState.CREATED else self.state
         return replace(
             self,
-            artifacts=remaining + (artifact,),
+            artifacts=(*remaining, artifact),
             state=state,
             version=self.version + 1,
         )
 
-    def start_step(self, step_id: str, provider: ProviderRef, *, now: datetime | None = None) -> OnboardingSession:
+    def start_step(
+        self, step_id: str, provider: ProviderRef, *, now: datetime | None = None
+    ) -> OnboardingSession:
         """Marca un paso como `RUNNING`, validando la invariante I2."""
         self._assert_mutable("iniciar paso")
         if not self.can_run(step_id):
@@ -300,7 +307,7 @@ class OnboardingSession:
         )
         session = self._with_step(updated)
         if evidence is not None:
-            session = replace(session, evidences=session.evidences + (evidence,))
+            session = replace(session, evidences=(*session.evidences, evidence))
         return session
 
     def begin_processing(self) -> OnboardingSession:
@@ -365,13 +372,13 @@ def _assert_acyclic(steps: tuple[Step, ...]) -> None:
             raise ValidationError(
                 "ciclo en el grafo de dependencias",
                 field="depends_on",
-                cycle=list(path + (node,)),
+                cycle=[*path, node],
             )
         if state[node] == 2:
             return
         state[node] = 1
         for neighbour in graph[node]:
-            visit(neighbour, path + (node,))
+            visit(neighbour, (*path, node))
         state[node] = 2
 
     for step in steps:

@@ -6,18 +6,19 @@ aparecen en el log de auditoría. Renombrar un valor es un cambio incompatible.
 
 from __future__ import annotations
 
-from enum import Enum
+import enum
 
 
-class StrEnum(str, Enum):
-    """Base de enumeración textual compatible con Python 3.11.
+class StrEnum(enum.StrEnum):
+    """Base de enumeración textual del dominio.
 
-    `enum.StrEnum` existe desde 3.11, pero se define aquí explícitamente para
-    fijar `__str__` y evitar sorpresas al serializar con `json.dumps`.
+    Deriva de `enum.StrEnum` (disponible desde Python 3.11, que es el mínimo
+    del proyecto). Se conserva el alias propio para no reescribir los imports
+    de todo el dominio y para tener un punto único donde ajustar el
+    comportamiento de serialización si hiciera falta. `enum.StrEnum` ya
+    garantiza que `str(miembro)` y `json.dumps` produzcan el valor, que es lo
+    que la mezcla manual `(str, Enum)` buscaba.
     """
-
-    def __str__(self) -> str:
-        return str(self.value)
 
 
 class Capability(StrEnum):
@@ -161,7 +162,7 @@ class EvidenceKind(StrEnum):
 class Verdict(StrEnum):
     """Resultado de una evidencia individual."""
 
-    PASS = "PASS"
+    PASS = "PASS"  # noqa: S105 - veredicto de una evidencia, no una contraseña
     FAIL = "FAIL"
     INCONCLUSIVE = "INCONCLUSIVE"
     NOT_APPLICABLE = "NOT_APPLICABLE"

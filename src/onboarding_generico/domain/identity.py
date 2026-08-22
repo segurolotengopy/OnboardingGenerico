@@ -12,9 +12,10 @@ logs y siempre se persiste cifrado.
 from __future__ import annotations
 
 import unicodedata
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field, replace
 from datetime import date
-from typing import Any, Iterable, Mapping
+from typing import Any
 
 from ..errors import ValidationError
 from .enums import DocumentType, Sex
@@ -33,7 +34,9 @@ COMPARABLE_FIELDS: tuple[str, ...] = (
 )
 
 #: Partículas de apellido que se conservan pero no aportan a la comparación.
-NAME_PARTICLES: frozenset[str] = frozenset({"DE", "DEL", "LA", "LAS", "LOS", "DA", "DOS", "VAN", "VON", "DI"})
+NAME_PARTICLES: frozenset[str] = frozenset(
+    {"DE", "DEL", "LA", "LAS", "LOS", "DA", "DOS", "VAN", "VON", "DI"}
+)
 
 
 def normalize_text(value: str) -> str:
@@ -76,7 +79,9 @@ def parse_mrz_date(yymmdd: str, *, pivot: int = 30) -> date:
     try:
         return date(year, mm, dd)
     except ValueError as exc:
-        raise ValidationError("fecha MRZ inválida: día o mes fuera de rango", field="mrz_date") from exc
+        raise ValidationError(
+            "fecha MRZ inválida: día o mes fuera de rango", field="mrz_date"
+        ) from exc
 
 
 def format_mrz_date(value: date) -> str:
@@ -247,9 +252,7 @@ def _levenshtein(left: str, right: str, *, cap: int = 8) -> int:
     for i, lch in enumerate(left, start=1):
         current = [i]
         for j, rch in enumerate(right, start=1):
-            current.append(
-                min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + (lch != rch))
-            )
+            current.append(min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + (lch != rch)))
         previous = current
     return min(previous[-1], cap)
 
@@ -338,7 +341,9 @@ def _coerce_date(value: Any, *, pivot: int) -> date | None:
     try:
         return date.fromisoformat(text)
     except ValueError as exc:
-        raise ValidationError("fecha inválida: se espera ISO YYYY-MM-DD o YYMMDD", field="date") from exc
+        raise ValidationError(
+            "fecha inválida: se espera ISO YYYY-MM-DD o YYMMDD", field="date"
+        ) from exc
 
 
 __all__ = [

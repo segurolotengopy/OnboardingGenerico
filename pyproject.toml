@@ -27,7 +27,17 @@ dependencies = []
 [project.optional-dependencies]
 aws = [
   "boto3>=1.34",
-  "aws-database-encryption-sdk>=3.1 ; python_version >= '3.11'",
+  # NOTA: aqui figuraba "aws-database-encryption-sdk>=3.1", un paquete que NO
+  # existe en PyPI con ese nombre; rompia `pip install -e ".[aws]"` y la build
+  # de la imagen de contenedor. Se retira porque hoy nada del arbol lo importa:
+  # `HierarchicalKeyProvider` habla con KMS y DynamoDB via boto3, y los metodos
+  # de `DbEsdkFieldCipher` siguen en `NotImplementedError`.
+  #
+  # Cuando esos metodos se implementen, el paquete correcto y verificado es
+  # `aws-cryptographic-material-providers` (>=1.11,<2), que es donde vive el
+  # hierarchical keyring que adopta docs/adr/0006-*.md. Se agrega entonces, no
+  # antes: arrastra DafnyRuntimePython y cryptography, peso muerto en el bundle
+  # de Lambda mientras no se use.
 ]
 gcp = [
   "google-cloud-firestore>=2.16",
@@ -54,8 +64,12 @@ cv = [
 dev = [
   "pytest>=8.0",
   "pytest-cov>=5.0",
-  "ruff>=0.4",
-  "mypy>=1.9",
+  # Techo de version a proposito: ruff y mypy introducen reglas y
+  # comprobaciones nuevas en cada minor, asi que un rango abierto hace que el
+  # CI falle sin que nadie haya tocado el codigo. Los pines coinciden con los
+  # `rev` de .pre-commit-config.yaml; se suben juntos y de forma deliberada.
+  "ruff>=0.16,<0.17",
+  "mypy>=2.3,<3",
   "types-boto3 ; python_version >= '3.11'",
   "pre-commit>=3.7",
 ]
@@ -96,10 +110,27 @@ select = [
 ignore = [
   "ANN401",  # Any explicito puntual en fronteras de adaptador
   "S101",    # assert permitido en pruebas y en invariantes de dominio
+  # La familia TID se activa por su `banned-api` (el veto a boto3 fuera de
+  # adapters/, regla 1 de CLAUDE.md), no por su veto a las importaciones
+  # relativas. El paquete usa importaciones relativas de forma sistemática y
+  # deliberada (`from ..ports.liveness import ...`) para que el nucleo sea
+  # reubicable sin reescribir imports; el default `ban-relative-imports =
+  # "parents"` las prohibe todas. Se ignora TID252 y se conserva TID251.
+  "TID252",  # relative-imports: estilo de importacion elegido del proyecto
+  # El proyecto documenta en español latinoamericano por mandato de CLAUDE.md.
+  # RUF002/RUF003 marcan como «ambiguos» los guiones largos (–) y comillas
+  # angulares de la prosa normal en ese idioma. Se revisaron los 5 casos: todos
+  # son tipografia española legitima, ninguno es un homoglifo sospechoso.
+  "RUF002",  # ambiguous-unicode-character-docstring
+  "RUF003",  # ambiguous-unicode-character-comment
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["ANN", "S105", "S106"]
+# `adapters/` es exactamente el unico lugar donde CLAUDE.md permite importar un
+# SDK de nube (regla 1). El veto de TID251 sobre boto3 sigue vigente para todo
+# el resto del arbol, que es lo que protege al nucleo.
+"src/onboarding_generico/adapters/**" = ["TID251"]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "boto3".msg = "Los SDK de nube solo se importan dentro de src/onboarding_generico/adapters/. Use un puerto."
@@ -118,14 +149,34 @@ strict = true
 warn_unreachable = true
 show_error_codes = true
 
+# `ignore_missing_imports` se aplica al modulo IMPORTADO, no al que importa.
+# Para tolerar que el CI corra mypy tras `pip install -e ".[dev]"` —es decir,
+# sin los extras aws, gcp ni api— hay que nombrar aqui los modulos de terceros.
 [[tool.mypy.overrides]]
-module = "onboarding_generico.adapters.*"
-disallow_untyped_calls = false
+module = [
+  "boto3.*",
+  "botocore.*",
+  "google.*",
+  "google.cloud.*",
+  "tink.*",
+  "fastapi.*",
+  "starlette.*",
+  "uvicorn.*",
+  "pydantic.*",
+  "cv2.*",
+  "onnxruntime.*",
+  "numpy.*",
+  "PIL.*",
+]
 ignore_missing_imports = true
 
+# Los adaptadores y los handlers son la frontera con SDK sin tipar: se relaja
+# `disallow_untyped_calls` ahi y solo ahi. `strict = true` sigue rigiendo sobre
+# domain, ports, composer, application y crypto.
 [[tool.mypy.overrides]]
-module = "onboarding_generico.handlers.*"
-ignore_missing_imports = true
+module = ["onboarding_generico.adapters.*", "onboarding_generico.handlers.*"]
+disallow_untyped_calls = false
+disallow_untyped_decorators = false
 
 # -----------------------------------------------------------------------------
 # Pytest

@@ -38,9 +38,7 @@ TEST_PRINCIPAL = "svc-requester"
 
 #: Ejemplo canónico ICAO TD1 (ERIKSSON ANNA MARIA).
 TD1_CANONICAL = (
-    "I<UTOD231458907<<<<<<<<<<<<<<<\n"
-    "7408122F1204159UTO<<<<<<<<<<<6\n"
-    "ERIKSSON<<ANNA<MARIA<<<<<<<<<<"
+    "I<UTOD231458907<<<<<<<<<<<<<<<\n7408122F1204159UTO<<<<<<<<<<<6\nERIKSSON<<ANNA<MARIA<<<<<<<<<<"
 )
 
 CLAIMS = {
@@ -284,9 +282,7 @@ def test_submit_document_requests_recapture_on_poor_quality(
     ref, digest, size = upload(container, tenant, key, b"imagen-borrosa")
     container.alignment.script(
         ref,
-        AlignmentResult(
-            aligned=ref, detected=True, sharpness=0.10, glare=0.80, resolution_px=300
-        ),
+        AlignmentResult(aligned=ref, detected=True, sharpness=0.10, glare=0.80, resolution_px=300),
     )
     result = SubmitDocument(container).execute(
         SubmitDocumentCommand(
@@ -362,7 +358,9 @@ def test_injection_detected_fails_liveness_even_with_high_score(
 ) -> None:
     session_id = _start(container).session_id
     _submit_document(container, tenant, upload, session_id)
-    result = _submit_selfie(container, tenant, upload, session_id, liveness_score=0.99, injection=True)
+    result = _submit_selfie(
+        container, tenant, upload, session_id, liveness_score=0.99, injection=True
+    )
     assert result.injection_detected is True
     assert result.liveness_passed is False
 
@@ -403,7 +401,9 @@ def test_decision_on_a_clean_case(container: Container, tenant: TenantId, upload
     _to_processing(container, tenant, session_id)
 
     result = ResolveDecision(container).execute(
-        ResolveDecisionCommand(tenant_id=tenant.value, session_id=session_id, principal=TEST_PRINCIPAL)
+        ResolveDecisionCommand(
+            tenant_id=tenant.value, session_id=session_id, principal=TEST_PRINCIPAL
+        )
     )
     # El tenant está configurado como SIGNALS_ONLY por defecto.
     assert result.outcome == str(DecisionOutcome.SIGNALS_ONLY)
@@ -422,7 +422,9 @@ def test_decision_opens_a_review_case_on_grey_band(
     _to_processing(container, tenant, session_id)
 
     result = ResolveDecision(container).execute(
-        ResolveDecisionCommand(tenant_id=tenant.value, session_id=session_id, principal=TEST_PRINCIPAL)
+        ResolveDecisionCommand(
+            tenant_id=tenant.value, session_id=session_id, principal=TEST_PRINCIPAL
+        )
     )
     assert result.review_case_id is not None
     assert result.state == str(SessionState.PENDING_REVIEW)
@@ -437,7 +439,9 @@ def test_decision_publishes_an_integration_event(
     _submit_selfie(container, tenant, upload, session_id)
     _to_processing(container, tenant, session_id)
     ResolveDecision(container).execute(
-        ResolveDecisionCommand(tenant_id=tenant.value, session_id=session_id, principal=TEST_PRINCIPAL)
+        ResolveDecisionCommand(
+            tenant_id=tenant.value, session_id=session_id, principal=TEST_PRINCIPAL
+        )
     )
     events = container.events.published_for(tenant, session_id)
     assert len(events) == 1
@@ -445,9 +449,7 @@ def test_decision_publishes_an_integration_event(
     assert events[0].ordering_key == f"{tenant.value}/{session_id}"
 
 
-def test_only_one_decision_per_session(
-    container: Container, tenant: TenantId, upload: Any
-) -> None:
+def test_only_one_decision_per_session(container: Container, tenant: TenantId, upload: Any) -> None:
     """Invariante I5: una segunda decisión exige re-verificación."""
     session_id = _start(container).session_id
     _submit_selfie(container, tenant, upload, session_id)
@@ -471,7 +473,7 @@ def test_decision_requires_an_intact_audit_chain(
 
     trail = container.sessions.audit_trail(tenant, SessionId(session_id))
     tampered = replace(trail[0], actor="atacante")
-    container.sessions._audit[(tenant.value, session_id)][0] = tampered  # noqa: SLF001
+    container.sessions._audit[(tenant.value, session_id)][0] = tampered
 
     from onboarding_generico.errors import AuditChainError
 
@@ -496,7 +498,9 @@ def test_manual_review_assign_and_resolve(
     _submit_selfie(container, tenant, upload, session_id, similarity=0.78)
     _to_processing(container, tenant, session_id)
     ResolveDecision(container).execute(
-        ResolveDecisionCommand(tenant_id=tenant.value, session_id=session_id, principal=TEST_PRINCIPAL)
+        ResolveDecisionCommand(
+            tenant_id=tenant.value, session_id=session_id, principal=TEST_PRINCIPAL
+        )
     )
 
     review = HandleManualReview(container)
@@ -554,9 +558,8 @@ def test_empty_queue_returns_none(container: Container, tenant: TenantId) -> Non
 def test_purge_removes_expired_sessions_and_keeps_the_audit_trail(
     container: Container, tenant: TenantId, upload: Any
 ) -> None:
-    from datetime import timedelta
-
     from dataclasses import replace
+    from datetime import timedelta
 
     session_id = _start(container).session_id
     _submit_document(container, tenant, upload, session_id)
@@ -579,9 +582,7 @@ def test_purge_removes_expired_sessions_and_keeps_the_audit_trail(
     verify_chain(trail)
 
 
-def test_purge_skips_blocked_sessions(
-    container: Container, tenant: TenantId, upload: Any
-) -> None:
+def test_purge_skips_blocked_sessions(container: Container, tenant: TenantId, upload: Any) -> None:
     """`BLOCKED` es limitación del tratamiento (art. 18 GDPR), no borrado."""
     session_id = _start(container).session_id
     session = container.sessions.get(tenant, SessionId(session_id))
@@ -643,9 +644,7 @@ def test_purge_requires_authorization(container: Container, tenant: TenantId) ->
         )
 
 
-def test_purge_is_serialized_by_a_distributed_lock(
-    container: Container, tenant: TenantId
-) -> None:
+def test_purge_is_serialized_by_a_distributed_lock(container: Container, tenant: TenantId) -> None:
     from onboarding_generico.application.purge_tenant_data import PURGE_LOCK_RESOURCE
     from onboarding_generico.errors import LockAcquisitionError
 

@@ -35,9 +35,10 @@ En TD1 el compuesto **sí incluye** los datos opcionales de la línea 1
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import date
-from typing import Any, Final, Mapping, Sequence
+from typing import Any, Final
 
 from ..errors import MrzCheckDigitError, MrzParseError
 from .enums import DocumentType, MrzFormat, Sex
@@ -50,9 +51,7 @@ WEIGHTS: Final[tuple[int, int, int]] = (7, 3, 1)
 FILLER: Final[str] = "<"
 
 #: Alfabeto admitido por la MRZ: 26 letras, 10 dígitos y el relleno.
-MRZ_ALPHABET: Final[frozenset[str]] = frozenset(
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<"
-)
+MRZ_ALPHABET: Final[frozenset[str]] = frozenset("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<")
 
 #: Longitud de línea por formato.
 LINE_LENGTHS: Final[dict[MrzFormat, tuple[int, ...]]] = {
@@ -244,10 +243,7 @@ def normalize_lines(raw: str | Sequence[str]) -> tuple[str, ...]:
     espacios (el OCR suele meter separaciones falsas), convierte a mayúsculas
     y descarta líneas vacías.
     """
-    if isinstance(raw, str):
-        candidates = raw.replace("\r", "\n").split("\n")
-    else:
-        candidates = list(raw)
+    candidates = raw.replace("\r", "\n").split("\n") if isinstance(raw, str) else list(raw)
     lines = []
     for candidate in candidates:
         cleaned = "".join(str(candidate).split()).upper()
@@ -468,7 +464,7 @@ def parse_mrz(
     if strict and not record.is_valid:
         raise MrzCheckDigitError(
             "dígitos de control de la MRZ incorrectos",
-            failures={name: "mismatch" for name in record.failed_checks},
+            failures=dict.fromkeys(record.failed_checks, "mismatch"),
         )
     return record
 
@@ -549,10 +545,10 @@ __all__ = [
     "FILLER",
     "LINE_LENGTHS",
     "MRZ_ALPHABET",
+    "WEIGHTS",
     "MrzCrossCheckResult",
     "MrzField",
     "MrzRecord",
-    "WEIGHTS",
     "build_check_digit_string",
     "character_value",
     "check_digit",

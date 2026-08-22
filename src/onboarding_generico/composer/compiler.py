@@ -7,14 +7,17 @@ step-workers y lo que se congela en la sesión. Los emisores (`emit_asl`,
 Reparto padre/hijo
 ------------------
 
-======================================================  =========  =========================================
+======================================================  =========  ==========================
 Condición del paso                                      Destino    Razón
-======================================================  =========  =========================================
-`wait: LONG`, `compensable: false` o espera de callback Padre      Express no soporta `.waitForTaskToken`,
-                                                                   `.sync`, Distributed Map ni Activities
-Automatizado, idempotente, corto                        Hijo       Coste por duración en vez de por transición
-Puramente computacional y de microsegundos              Fusionado  Cada transición del padre cuesta
-======================================================  =========  =========================================
+======================================================  =========  ==========================
+`wait: LONG`, `compensable: false` o espera de callback Padre      Express no soporta
+                                                                   `.waitForTaskToken`, `.sync`,
+                                                                   Distributed Map ni Activities
+Automatizado, idempotente, corto                        Hijo       Coste por duración en vez
+                                                                   de por transición
+Puramente computacional y de microsegundos              Fusionado  Cada transición del padre
+                                                                   cuesta
+======================================================  =========  ==========================
 
 El ahorro del patrón anidado es **específico de cada flujo**. Los datos de
 referencia sobre un flujo ejemplo ejecutado 1.000 veces: Standard puro con 17
@@ -44,8 +47,9 @@ cuando llegue la decisión.
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from ..domain.enums import Capability, CompileTarget, OnFailure, WaitClass
 from ..errors import SpecValidationError
@@ -133,7 +137,9 @@ class ExecutionPlan:
         for candidate in self.steps:
             if candidate.step_id == step_id:
                 return candidate
-        raise SpecValidationError(f"paso inexistente en el plan: '{step_id}'", check="V4", path="steps")
+        raise SpecValidationError(
+            f"paso inexistente en el plan: '{step_id}'", check="V4", path="steps"
+        )
 
     @property
     def parent_steps(self) -> tuple[PlannedStep, ...]:
@@ -238,13 +244,15 @@ class FlowCompiler:
         if estimated > MAX_HISTORY_EVENTS * HISTORY_WARNING_RATIO:
             warnings.append(
                 f"la estimación de eventos de historial ({estimated}) supera el "
-                f"{int(HISTORY_WARNING_RATIO * 100)} % del límite de {MAX_HISTORY_EVENTS} por ejecución; "
+                f"{int(HISTORY_WARNING_RATIO * 100)} % del límite de "
+                f"{MAX_HISTORY_EVENTS} por ejecución; "
                 "considere el patrón de arrancar ejecuciones nuevas"
             )
         for wave in waves:
             if len(wave) > MAX_WORKFLOWS_PARALLEL_BRANCHES:
                 warnings.append(
-                    f"la ola con {len(wave)} pasos supera las {MAX_WORKFLOWS_PARALLEL_BRANCHES} ramas por "
+                    f"la ola con {len(wave)} pasos supera las "
+                    f"{MAX_WORKFLOWS_PARALLEL_BRANCHES} ramas por "
                     "paso 'parallel' de Cloud Workflows; el compilador la agrupa en olas sucesivas"
                 )
 
@@ -278,7 +286,9 @@ def emit_asl(plan: ExecutionPlan) -> dict[str, Any]:
     wave_names: list[str] = []
 
     for index, wave in enumerate(plan.waves):
-        executable = [step_id for step_id in wave if plan.step(step_id).tier != ExecutionTier.MERGED]
+        executable = [
+            step_id for step_id in wave if plan.step(step_id).tier != ExecutionTier.MERGED
+        ]
         if not executable:
             continue
         name = f"Wave{index}"
@@ -360,7 +370,10 @@ def _asl_task(plan: ExecutionPlan, step: PlannedStep, *, terminal: bool = False)
         "Resource": resource,
         "Parameters": {"FunctionName": "${step_dispatch_arn}", "Payload": payload},
         "ResultPath": f"$.results.{step.step_id}",
-        "ResultSelector": {"evidence_ref.$": "$.Payload.evidence_ref", "state.$": "$.Payload.state"},
+        "ResultSelector": {
+            "evidence_ref.$": "$.Payload.evidence_ref",
+            "state.$": "$.Payload.state",
+        },
     }
 
     if step.max_attempts:
@@ -432,7 +445,9 @@ def emit_cloud_workflows(plan: ExecutionPlan) -> str:
             lines.extend(_workflows_call(plan.step(immediate[0]), indent="    "))
         elif len(immediate) > 1:
             # Máximo 10 ramas por paso parallel: se parte en olas sucesivas.
-            for chunk_index, chunk in enumerate(_chunks(immediate, MAX_WORKFLOWS_PARALLEL_BRANCHES)):
+            for chunk_index, chunk in enumerate(
+                _chunks(immediate, MAX_WORKFLOWS_PARALLEL_BRANCHES)
+            ):
                 lines.append(f"    - wave{index}_{chunk_index}:")
                 lines.append("        parallel:")
                 lines.append("          shared: [results]")
@@ -450,7 +465,7 @@ def emit_cloud_workflows(plan: ExecutionPlan) -> str:
             "    - decide:",
             "        call: http.post",
             "        args:",
-            "          url: ${sys.get_env(\"OG_DECISION_URL\")}",
+            '          url: ${sys.get_env("OG_DECISION_URL")}',
             "          auth: {type: OIDC}",
             "          body:",
             "            tenant_id: ${tenant_id}",
@@ -473,7 +488,7 @@ def _workflows_call(step: PlannedStep, *, indent: str = "    ") -> list[str]:
         f"{indent}- {step.step_id}:",
         f"{indent}    call: http.post",
         f"{indent}    args:",
-        f"{indent}      url: ${{sys.get_env(\"OG_STEP_DISPATCH_URL\")}}",
+        f'{indent}      url: ${{sys.get_env("OG_STEP_DISPATCH_URL")}}',
         f"{indent}      auth: {{type: OIDC}}",
         f"{indent}      body:",
         f"{indent}        tenant_id: ${{tenant_id}}",
@@ -498,7 +513,7 @@ def _workflows_long_wait(step: PlannedStep) -> list[str]:
         f"    - {step.step_id}_suspend:",
         "        call: http.post",
         "        args:",
-        "          url: ${sys.get_env(\"OG_SUSPEND_URL\")}",
+        '          url: ${sys.get_env("OG_SUSPEND_URL")}',
         "          auth: {type: OIDC}",
         "          body:",
         "            tenant_id: ${tenant_id}",
@@ -549,7 +564,8 @@ def check_quotas(plan: ExecutionPlan) -> tuple[str, ...]:
     asl_bytes = len(json.dumps(emit_asl(plan)).encode("utf-8"))
     if asl_bytes > MAX_ASL_DEFINITION_BYTES:
         findings.append(
-            f"la definición ASL ocupa {asl_bytes} bytes y la cuota dura es {MAX_ASL_DEFINITION_BYTES}; "
+            f"la definición ASL ocupa {asl_bytes} bytes y la cuota dura es "
+            f"{MAX_ASL_DEFINITION_BYTES}; "
             "hay que partirla en un padre y varios hijos anidados"
         )
     yaml_bytes = len(emit_cloud_workflows(plan).encode("utf-8"))

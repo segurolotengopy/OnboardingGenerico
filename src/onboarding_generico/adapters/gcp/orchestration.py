@@ -20,7 +20,8 @@ cuando un caso escala a compliance o cruza un fin de semana.
 from __future__ import annotations
 
 import uuid
-from typing import Any, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 from ...config import Settings
 from ...domain.value_objects import SessionId, TenantId, utc_now
@@ -41,9 +42,11 @@ EXECUTION_RETENTION_DAYS: int = 90
 class CloudWorkflowsSaga(OnboardingSagaPort):
     """Saga sobre Cloud Workflows con el patrón de persistir y relanzar."""
 
-    __slots__ = ("_settings", "_workflow_name", "_location")
+    __slots__ = ("_location", "_settings", "_workflow_name")
 
-    def __init__(self, settings: Settings, workflow_name: str = "", location: str = "us-central1") -> None:
+    def __init__(
+        self, settings: Settings, workflow_name: str = "", location: str = "us-central1"
+    ) -> None:
         self._settings = settings
         self._location = location
         self._workflow_name = workflow_name or settings.resource_name("onboarding")
@@ -62,7 +65,7 @@ class CloudWorkflowsSaga(OnboardingSagaPort):
         plan: Mapping[str, Any],
         context: Mapping[str, Any] | None = None,
     ) -> SagaHandle:
-        import json  # noqa: PLC0415
+        import json
 
         arguments = {
             "tenant_id": tenant_id.value,
@@ -82,7 +85,7 @@ class CloudWorkflowsSaga(OnboardingSagaPort):
             execution = workflows_executions_client().create_execution(
                 request={"parent": self._parent(), "execution": {"argument": encoded}}
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise ProviderUnavailableError(
                 "Cloud Workflows no respondió", provider_id="cloudworkflows"
             ) from exc
@@ -102,7 +105,7 @@ class CloudWorkflowsSaga(OnboardingSagaPort):
         No se usa `events.await_callback`: 12 h por defecto, un solo slot
         pendiente por endpoint y sin heartbeat. Un TTL de 7 días no cabe ahí.
         """
-        from datetime import timedelta  # noqa: PLC0415
+        from datetime import timedelta
 
         token = ResumeToken(
             value=uuid.uuid4().hex,
@@ -121,7 +124,7 @@ class CloudWorkflowsSaga(OnboardingSagaPort):
 
     def resume(self, token: ResumeToken, payload: Mapping[str, Any]) -> SagaHandle:
         """Arranca una ejecución nueva con el estado recuperado."""
-        import json  # noqa: PLC0415
+        import json
 
         arguments = {
             "tenant_id": token.tenant_id,
@@ -185,7 +188,7 @@ class PubSubBus(EventBusPort):
         return f"projects/{self._settings.gcp_project}/topics/{self._topic}"
 
     def publish(self, event: IntegrationEvent) -> str:
-        import json  # noqa: PLC0415
+        import json
 
         future = publisher_client().publish(
             self._topic_path(),

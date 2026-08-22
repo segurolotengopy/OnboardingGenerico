@@ -30,7 +30,8 @@ dimensionado se decide midiendo, no por instrucciones vectoriales.
 from __future__ import annotations
 
 import json
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 from ...application.handle_manual_review import (
     AssignCaseCommand,
@@ -104,14 +105,14 @@ def lambda_authorizer(event: Mapping[str, Any], context: Any) -> dict[str, Any]:
     )
 
 
-def _policy(principal: str, effect: str, resource: str, context: Mapping[str, str]) -> dict[str, Any]:
+def _policy(
+    principal: str, effect: str, resource: str, context: Mapping[str, str]
+) -> dict[str, Any]:
     return {
         "principalId": principal,
         "policyDocument": {
             "Version": "2012-10-17",
-            "Statement": [
-                {"Action": "execute-api:Invoke", "Effect": effect, "Resource": resource}
-            ],
+            "Statement": [{"Action": "execute-api:Invoke", "Effect": effect, "Resource": resource}],
         },
         "context": dict(context),
         # El caché del authorizer de API Gateway llega a 3.600 s. Se pierde al

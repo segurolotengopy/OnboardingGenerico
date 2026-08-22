@@ -23,22 +23,19 @@ lista debe mantenerse corta y justificada.
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Iterable, Mapping
+from enum import StrEnum
 
 from ..errors import ValidationError
 
 
-class CryptoAction(str, Enum):
+class CryptoAction(StrEnum):
     """Directiva criptográfica aplicable a un atributo."""
 
     ENCRYPT_AND_SIGN = "ENCRYPT_AND_SIGN"
     SIGN_ONLY = "SIGN_ONLY"
     DO_NOTHING = "DO_NOTHING"
-
-    def __str__(self) -> str:
-        return str(self.value)
 
 
 #: Atributos que llevan PII y se cifran siempre.
@@ -105,7 +102,9 @@ class FieldPolicy:
         return self.directives.get(field_name, self.default_action)
 
     def encrypted_fields(self) -> tuple[str, ...]:
-        return tuple(sorted(n for n, a in self.directives.items() if a is CryptoAction.ENCRYPT_AND_SIGN))
+        return tuple(
+            sorted(n for n, a in self.directives.items() if a is CryptoAction.ENCRYPT_AND_SIGN)
+        )
 
     def signed_fields(self) -> tuple[str, ...]:
         return tuple(sorted(n for n, a in self.directives.items() if a is CryptoAction.SIGN_ONLY))

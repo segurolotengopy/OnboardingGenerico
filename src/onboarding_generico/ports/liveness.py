@@ -70,7 +70,9 @@ class LivenessPort(abc.ABC):
         """Crea la sesión en el proveedor y devuelve el token para el cliente."""
 
     @abc.abstractmethod
-    def get_result(self, tenant_id: TenantId, provider_session_id: str, *, threshold: float = 0.90) -> LivenessResult:
+    def get_result(
+        self, tenant_id: TenantId, provider_session_id: str, *, threshold: float = 0.90
+    ) -> LivenessResult:
         """Recupera el resultado del reto una vez el cliente lo completó."""
 
 

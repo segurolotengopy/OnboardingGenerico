@@ -16,7 +16,7 @@ EXTRA: str = "gcp"
 
 def require(module_path: str, package_name: str) -> Any:
     """Importa un módulo de GCP o lanza `MissingDependencyError`."""
-    import importlib  # noqa: PLC0415
+    import importlib
 
     try:
         return importlib.import_module(module_path)

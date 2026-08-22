@@ -40,7 +40,7 @@ def test_first_event_links_to_genesis() -> None:
 
 def test_each_event_links_to_the_previous() -> None:
     chain = _chain(4)
-    for previous, current in zip(chain.events, chain.events[1:]):
+    for previous, current in zip(chain.events, chain.events[1:], strict=False):
         assert current.previous_hash == previous.event_hash
         assert current.sequence == previous.sequence + 1
     chain.verify()

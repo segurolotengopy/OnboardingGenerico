@@ -22,7 +22,6 @@ from onboarding_generico.domain.mrz import (
 )
 from onboarding_generico.errors import MrzCheckDigitError, MrzParseError
 
-
 # --------------------------------------------------------------------------
 # Algoritmo del dígito de control
 # --------------------------------------------------------------------------
@@ -194,7 +193,10 @@ def test_detect_format_rejects_unknown_geometry(mrz_samples: dict[str, Any]) -> 
 
 def test_normalize_lines_strips_ocr_spaces() -> None:
     """El OCR mete espacios espurios; la MRZ no los tiene."""
-    lines = normalize_lines("P<UTO ERIKSSON<<ANNA<MARIA<<<<<<<<<<<<<<<<<<<\n L898902C36UTO7408122F1204159ZE184226B<<<<<10")
+    lines = normalize_lines(
+        "P<UTO ERIKSSON<<ANNA<MARIA<<<<<<<<<<<<<<<<<<<\n"
+        " L898902C36UTO7408122F1204159ZE184226B<<<<<10"
+    )
     assert len(lines[0]) == 44
     assert len(lines[1]) == 44
 
@@ -255,7 +257,9 @@ def test_to_claims_projection(mrz_samples: dict[str, Any]) -> None:
 
 def test_document_type_from_code(mrz_samples: dict[str, Any]) -> None:
     assert parse_mrz(mrz_samples["canonical"]["td1"]["lines"]).document_type is DocumentType.ID_CARD
-    assert parse_mrz(mrz_samples["canonical"]["td3"]["lines"]).document_type is DocumentType.PASSPORT
+    assert (
+        parse_mrz(mrz_samples["canonical"]["td3"]["lines"]).document_type is DocumentType.PASSPORT
+    )
 
 
 def test_audit_summary_has_no_pii(mrz_samples: dict[str, Any]) -> None:
