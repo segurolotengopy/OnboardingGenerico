@@ -5,7 +5,7 @@ variable "env" {
 
 variable "tenants" {
   description = "Mapa de tenant_id a sus atributos. La clave del mapa es el tenant_id tal como aparece en el session tag TenantID y en el encryption context. Se crea una CMK por entrada."
-  type        = map(object({
+  type = map(object({
     tier         = optional(string, "standard")
     jurisdiction = optional(string, "")
   }))

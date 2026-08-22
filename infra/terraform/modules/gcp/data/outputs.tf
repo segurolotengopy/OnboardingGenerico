@@ -15,7 +15,7 @@ output "tenant_database_names" {
 
 output "collections" {
   description = "Nombres de los grupos de colecciones usados por el middleware, para que el adaptador no los cablee."
-  value       = {
+  value = {
     cases        = var.cases_collection
     reviews      = var.reviews_collection
     capabilities = var.capabilities_collection

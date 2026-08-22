@@ -29,7 +29,7 @@ locals {
   # variables y no cadenas cableadas.
   openapi_document = yamlencode({
     swagger = "2.0"
-    info    = {
+    info = {
       title       = "${local.name}-api"
       version     = "1.0.0"
       description = "API del middleware de onboarding y eKYC."
@@ -42,9 +42,9 @@ locals {
     # resolucion de tenant y las politicas se aplican dentro del Cloud Run.
     securityDefinitions = {
       tenant_jwt = {
-        authorizationUrl = ""
-        flow             = "implicit"
-        type             = "oauth2"
+        authorizationUrl     = ""
+        flow                 = "implicit"
+        type                 = "oauth2"
         "x-google-issuer"    = var.jwt_issuer
         "x-google-jwks_uri"  = var.jwt_jwks_uri
         "x-google-audiences" = var.jwt_audience
@@ -61,7 +61,7 @@ locals {
         post = {
           summary     = "Inicia un caso de onboarding"
           operationId = "startCase"
-          security    = [
+          security = [
             { tenant_jwt = [] },
             { api_key = [] },
           ]
@@ -87,7 +87,7 @@ locals {
           summary     = "Consulta el estado de un caso"
           operationId = "getCase"
           security    = [{ tenant_jwt = [] }]
-          parameters  = [
+          parameters = [
             {
               name     = "caseId"
               in       = "path"

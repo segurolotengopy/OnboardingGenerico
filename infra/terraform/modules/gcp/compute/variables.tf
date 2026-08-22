@@ -20,7 +20,7 @@ variable "runtime_service_account_email" {
 
 variable "services" {
   description = "Mapa de nombre logico a definicion de servicio de Cloud Run. ADVERTENCIA: existe una relacion obligatoria entre CPU y memoria (1 vCPU admite hasta 4 GiB; 4 vCPU, de 2 a 16 GiB; 8 vCPU, de 4 a 32 GiB) y el sistema de archivos escribible es tmpfs que consume memoria."
-  type        = map(object({
+  type = map(object({
     description           = string
     image_name            = string
     image_tag             = optional(string, "v1")
@@ -39,7 +39,7 @@ variable "services" {
     data_classification   = optional(string, "internal")
     invoker_members       = optional(list(string), [])
     environment           = optional(map(string), {})
-    secret_environment    = optional(map(object({
+    secret_environment = optional(map(object({
       secret  = string
       version = string
     })), {})
@@ -49,7 +49,7 @@ variable "services" {
 
 variable "jobs" {
   description = "Mapa de nombre logico a definicion de job de Cloud Run. Los jobs admiten hasta 7 dias de ejecucion y 10.000 tareas, que es el mecanismo de fan-out masivo en GCP al no existir Distributed Map."
-  type        = map(object({
+  type = map(object({
     image_name            = string
     image_tag             = optional(string, "v1")
     cpu                   = optional(string, "1")

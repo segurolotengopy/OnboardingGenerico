@@ -22,7 +22,7 @@ variable "shared_database_name" {
 
 variable "tenants" {
   description = "Mapa de tenant_id a sus atributos. Los tenants con tier premium reciben una base de datos Firestore dedicada."
-  type        = map(object({
+  type = map(object({
     tier         = optional(string, "standard")
     jurisdiction = optional(string, "")
   }))

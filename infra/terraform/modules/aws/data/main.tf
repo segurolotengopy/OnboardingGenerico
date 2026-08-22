@@ -28,10 +28,10 @@ locals {
   core_gsis = [
     {
       # Busqueda de casos por estado: GSI1PK = TENANT#<t>#STATUS#<estado>
-      name               = "GSI1"
-      hash_key           = "GSI1PK"
-      range_key          = "GSI1SK"
-      projection_type    = "INCLUDE"
+      name            = "GSI1"
+      hash_key        = "GSI1PK"
+      range_key       = "GSI1SK"
+      projection_type = "INCLUDE"
       non_key_attributes = [
         "case_status",
         "case_created_at",

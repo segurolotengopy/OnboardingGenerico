@@ -40,7 +40,7 @@ locals {
     biometrics = {
       classification = "restricted"
       versioning     = true
-      transitions    = [
+      transitions = [
         { days = 30, storage_class = "STANDARD_IA" },
         { days = 180, storage_class = "GLACIER_IR" },
       ]

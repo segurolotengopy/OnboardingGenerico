@@ -30,7 +30,7 @@ output "start_execution_request_template" {
 
 output "log_group_names" {
   description = "Nombres de los log groups de las tres maquinas de estado."
-  value       = {
+  value = {
     parent     = aws_cloudwatch_log_group.parent.name
     ocr        = aws_cloudwatch_log_group.ocr_express.name
     biometrics = aws_cloudwatch_log_group.biometrics_express.name

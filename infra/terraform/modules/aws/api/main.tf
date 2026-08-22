@@ -53,7 +53,7 @@ resource "aws_iam_role" "authorizer_invocation" {
   name = "${local.name}-apigw-authorizer"
 
   assume_role_policy = jsonencode({
-    Version   = "2012-10-17"
+    Version = "2012-10-17"
     Statement = [
       {
         Effect    = "Allow"
@@ -71,7 +71,7 @@ resource "aws_iam_role_policy" "authorizer_invocation" {
   role = aws_iam_role.authorizer_invocation.id
 
   policy = jsonencode({
-    Version   = "2012-10-17"
+    Version = "2012-10-17"
     Statement = [
       {
         Effect   = "Allow"
@@ -126,9 +126,9 @@ resource "aws_api_gateway_model" "start_case" {
 
   schema = jsonencode({
     "$schema" = "http://json-schema.org/draft-04/schema#"
-    title      = "StartCaseRequest"
-    type       = "object"
-    required   = ["countryCode", "documentType", "documentUri"]
+    title     = "StartCaseRequest"
+    type      = "object"
+    required  = ["countryCode", "documentType", "documentUri"]
     properties = {
       countryCode  = { type = "string", pattern = "^[A-Z]{2}$" }
       documentType = { type = "string" }

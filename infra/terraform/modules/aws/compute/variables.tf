@@ -28,7 +28,7 @@ variable "inference_memory_mb" {
 
 variable "zip_functions" {
   description = "Mapa de nombre logico a definicion de funcion empaquetada como zip. La clave se concatena al prefijo og-{env}- para formar el nombre de la funcion."
-  type        = map(object({
+  type = map(object({
     description             = string
     handler                 = string
     s3_key                  = string
@@ -44,7 +44,7 @@ variable "zip_functions" {
 
 variable "container_functions" {
   description = "Mapa de nombre logico a definicion de funcion empaquetada como imagen de contenedor. Se crea un repositorio de ECR por entrada."
-  type        = map(object({
+  type = map(object({
     description             = string
     image_tag               = optional(string, "v1")
     architecture            = optional(string, "x86_64")
@@ -73,7 +73,7 @@ variable "shared_layer_s3_key" {
 
 variable "vpc_config" {
   description = "Configuracion de red para las funciones marcadas con in_vpc. Nulo significa que ninguna funcion se despliega dentro de la VPC."
-  type        = object({
+  type = object({
     subnet_ids         = list(string)
     security_group_ids = list(string)
   })

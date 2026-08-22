@@ -48,7 +48,7 @@ variable "start_execution_request_template" {
 
 variable "tenant_usage_plans" {
   description = "Mapa de tenant_id a su plan de uso. Permite cuotas y throttling diferenciados por tier e impide que un tenant ruidoso consuma la capacidad de los demas."
-  type        = map(object({
+  type = map(object({
     tier         = optional(string, "standard")
     rate_limit   = optional(number, 20)
     burst_limit  = optional(number, 40)

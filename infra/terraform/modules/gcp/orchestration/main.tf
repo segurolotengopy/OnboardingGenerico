@@ -30,7 +30,7 @@ locals {
   workflow_source = yamlencode({
     main = {
       params = ["args"]
-      steps  = [
+      steps = [
         {
           init = {
             assign = [
@@ -72,7 +72,7 @@ locals {
           # ramas por paso parallel y 2 niveles de anidamiento.
           automated_checks = {
             parallel = {
-              shared   = ["extraction", "biometrics"]
+              shared = ["extraction", "biometrics"]
               branches = [
                 {
                   extraction_branch = {
@@ -84,7 +84,7 @@ locals {
                             url     = "$${sys.get_env(\"EXTRACTION_URL\") + \"/extract\"}"
                             auth    = { type = "OIDC" }
                             timeout = 540
-                            body    = {
+                            body = {
                               tenantId     = "$${tenantId}"
                               caseId       = "$${caseId}"
                               documentUri  = "$${documentUri}"
@@ -127,7 +127,7 @@ locals {
                             url     = "$${sys.get_env(\"BIOMETRICS_URL\") + \"/verify\"}"
                             auth    = { type = "OIDC" }
                             timeout = 300
-                            body    = {
+                            body = {
                               tenantId          = "$${tenantId}"
                               caseId            = "$${caseId}"
                               livenessSessionId = "$${args.livenessSessionId}"
