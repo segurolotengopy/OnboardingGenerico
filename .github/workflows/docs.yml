@@ -24,12 +24,42 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
       - name: Impedir la reintroducción de cifras desmentidas
+        # Varias afirmaciones de la especificación de origen resultaron falsas al
+        # verificarlas. El catálogo está en
+        # docs/20-fe-de-erratas-del-spec-original.md.
+        #
+        # Este control mira SOLO LAS LÍNEAS AÑADIDAS por la rama, no el árbol
+        # completo. Es la única forma de que funcione: la documentación cita esas
+        # cifras precisamente para desmentirlas, así que un barrido del árbol
+        # entero marca como infracción el propio desmentido. Lo que se persigue es
+        # la *reintroducción* por copiar y pegar, y eso vive en el diff.
+        #
+        # La versión anterior nunca comprobó nada. Escribía
+        # `grep -rniF -- "$p" ... --exclude-dir=...`, y como `--` cierra el
+        # análisis de opciones, los `--exclude*` se tomaban como nombres de
+        # archivo: grep terminaba con código 2, el `if` lo leía como falso y el
+        # paso salía en verde siempre.
+        env:
+          RAMA_BASE: ${{ github.base_ref }}
         run: |
-          # Ocho afirmaciones de la especificación de origen resultaron falsas al
-          # verificarlas. Este control impide que vuelvan a colarse por copiar y pegar.
-          # El catálogo completo está en docs/20-fe-de-erratas-del-spec-original.md,
-          # que es el único archivo autorizado a citarlas para desmentirlas.
+          set -euo pipefail
+          git fetch -q --depth=1 origin "$RAMA_BASE"
+
+          # Los archivos se excluyen con pathspec de git, no con opciones de
+          # grep, para no repetir el error anterior.
+          anadidas="$(git diff -U0 "origin/${RAMA_BASE}...HEAD" -- \
+                        docs/ README.md CLAUDE.md \
+                        ':(exclude)docs/referencias/**' \
+                        ':(exclude)docs/20-fe-de-erratas-del-spec-original.md' \
+                      | { grep -E '^\+' || true; } | { grep -v '^+++' || true; })"
+
+          if [ -z "$anadidas" ]; then
+            echo "Sin líneas añadidas en la documentación vigilada."
+            exit 0
+          fi
+
           patrones=(
             "3008 MB"
             "3,008 MB"
@@ -40,11 +70,12 @@ jobs:
           )
           fallo=0
           for p in "${patrones[@]}"; do
-            if grep -rniF -- "$p" docs/ README.md CLAUDE.md \
-                 --exclude-dir=referencias \
-                 --exclude="20-fe-de-erratas-del-spec-original.md" ; then
-              echo "::error::Afirmación desmentida reintroducida: '$p'"
+            if printf '%s\n' "$anadidas" | grep -niF -- "$p"; then
+              echo "::error::Afirmación desmentida reintroducida: '$p'. Consulte docs/20-fe-de-erratas-del-spec-original.md."
               fallo=1
             fi
           done
+          if [ "$fallo" -eq 0 ]; then
+            echo "Ninguna afirmación desmentida en las líneas añadidas."
+          fi
           exit $fallo

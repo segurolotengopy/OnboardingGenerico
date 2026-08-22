@@ -59,11 +59,18 @@ jobs:
           sbom: true
 
   escanear:
-    name: Escaneo de vulnerabilidades de la imagen
+    name: Escaneo de vulnerabilidades de ${{ matrix.imagen }}
     needs: construir
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     permissions: { contents: read, security-events: write }
+    strategy:
+      fail-fast: false
+      matrix:
+        # Se escanean las dos imágenes. Antes solo se cubría `api`, y la que
+        # quedaba fuera es justamente la de mayor superficie: `inference` carga
+        # bibliotecas de visión artificial y tiempo de ejecución de modelos.
+        imagen: [api, inference]
     steps:
       - uses: actions/checkout@v5
       - name: Normalizar la referencia de la imagen
@@ -77,7 +84,8 @@ jobs:
         env:
           REPOSITORIO: ${{ github.repository }}
           REVISION: ${{ github.sha }}
-        run: echo "IMAGEN=ghcr.io/${REPOSITORIO,,}/api:sha-${REVISION}" >> "$GITHUB_ENV"
+          NOMBRE: ${{ matrix.imagen }}
+        run: echo "IMAGEN=ghcr.io/${REPOSITORIO,,}/${NOMBRE}:sha-${REVISION}" >> "$GITHUB_ENV"
       - uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.IMAGEN }}
@@ -85,4 +93,8 @@ jobs:
           output: trivy.sarif
           severity: CRITICAL,HIGH
       - uses: github/codeql-action/upload-sarif@v4
-        with: { sarif_file: trivy.sarif }
+        # `category` separa los resultados por imagen. Sin él, la segunda carga
+        # sustituye a la primera en Code Scanning y solo se vería una de las dos.
+        with:
+          sarif_file: trivy.sarif
+          category: trivy-${{ matrix.imagen }}
