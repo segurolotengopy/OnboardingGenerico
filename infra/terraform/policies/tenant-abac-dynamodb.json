@@ -1,0 +1,53 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "TenantScopedItemAccess",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:BatchGetItem",
+        "dynamodb:Query",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:ConditionCheckItem"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:REGION:ACCOUNT_ID:table/og-ENV-core",
+        "arn:aws:dynamodb:REGION:ACCOUNT_ID:table/og-ENV-core/index/*"
+      ],
+      "Condition": {
+        "ForAllValues:StringEquals": {
+          "dynamodb:LeadingKeys": [
+            "TENANT#${aws:PrincipalTag/TenantID}"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "DenyFullTableScan",
+      "Effect": "Deny",
+      "Action": [
+        "dynamodb:Scan"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:REGION:ACCOUNT_ID:table/og-ENV-core",
+        "arn:aws:dynamodb:REGION:ACCOUNT_ID:table/og-ENV-core/index/*"
+      ]
+    },
+    {
+      "Sid": "ReadOnlyCapabilityRegistry",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:Query"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:REGION:ACCOUNT_ID:table/og-ENV-capability-registry",
+        "arn:aws:dynamodb:REGION:ACCOUNT_ID:table/og-ENV-capability-registry/index/*"
+      ]
+    }
+  ]
+}

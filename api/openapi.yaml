@@ -1,0 +1,799 @@
+openapi: 3.1.0
+
+info:
+  title: Onboarding Genérico — API de orquestación
+  version: 0.1.0
+  summary: Middleware B2B para la composición dinámica de flujos de onboarding e identidad digital.
+  description: |
+    API transaccional que consumen los sistemas **requirentes** (inquilinos B2B) para ejecutar
+    flujos de onboarding compuestos dinámicamente a partir del Registro de Capacidades.
+
+    ## Principios del contrato
+
+    - **Ningún binario viaja por esta API.** Las imágenes y videos se suben directamente al
+      almacenamiento de objetos mediante URLs prefirmadas obtenidas en `POST /v1/sessions/{sessionId}/artifacts`.
+      El límite de 512 KB acumulados por ejecución de Cloud Workflows y el de 256 KiB por payload
+      de Step Functions hacen inviable cualquier otro diseño.
+    - **El inquilino se deriva del token, nunca del cuerpo ni de la ruta.** Un `tenantId` en el
+      cuerpo de una petición se ignora; si contradice al del token, la petición se rechaza con `403`.
+    - **Toda escritura es idempotente** mediante la cabecera `Idempotency-Key`.
+    - **La decisión puede no ser del middleware.** En jurisdicciones donde la debida diligencia no
+      es delegable —Bolivia, art. 32(II) del Instructivo UIF—, el flujo se configura con
+      `decisionIssuer = SIGNALS_ONLY` y esta API devuelve señales, no un veredicto.
+      Ver `docs/adr/0014-el-middleware-es-encargado-del-tratamiento.md`.
+
+    ## Datos personales
+
+    Las respuestas de esta API contienen datos de categoría especial. El consumidor es responsable
+    de no registrarlas en claro. El middleware nunca devuelve la plantilla biométrica: solo su
+    referencia y el resultado de la comparación.
+  contact:
+    name: Equipo de arquitectura de plataforma
+    url: https://github.com/segurolotengopy/OnboardingGenerico
+  license:
+    name: Apache-2.0
+    identifier: Apache-2.0
+
+servers:
+  - url: https://api.{region}.onboarding-generico.example/v1
+    description: Instancia regional. La región determina la residencia de los datos (ver ADR-0013).
+    variables:
+      region:
+        default: us-east-1
+        enum: [us-east-1, eu-west-1, sa-east-1, southamerica-east1, europe-west4]
+  - url: http://localhost:8080/v1
+    description: Entorno local con adaptadores en memoria.
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Sesiones
+    description: Ciclo de vida de una transacción de onboarding.
+  - name: Artefactos
+    description: Carga de documentos y capturas mediante URLs prefirmadas.
+  - name: Decisión
+    description: Consulta del veredicto y de las señales que lo sustentan.
+  - name: Revisión humana
+    description: Operaciones del back office de cumplimiento.
+  - name: Capacidades
+    description: Consulta del Registro de Capacidades vigente para el inquilino.
+  - name: Privacidad
+    description: Ejercicio del derecho de supresión y purga de datos.
+  - name: Operación
+    description: Salud y diagnóstico.
+
+paths:
+  /sessions:
+    post:
+      tags: [Sesiones]
+      operationId: createSession
+      summary: Inicia una sesión de onboarding
+      description: |
+        Resuelve la especificación de flujo aplicable a la combinación
+        (inquilino, país, tipo de documento) consultando el Registro de Capacidades,
+        la compila a un plan de ejecución y devuelve la lista de artefactos que el
+        sujeto debe aportar.
+
+        Si no existe una especificación activa para esa combinación, responde `422`
+        con `code = FLOW_SPEC_NOT_FOUND`. **No se aplica ningún flujo por defecto**:
+        adivinar el flujo sería adivinar el nivel de aseguramiento.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateSessionRequest' }
+            examples:
+              cedulaBoliviana:
+                summary: Cédula de identidad boliviana, flujo con señales sin veredicto
+                value:
+                  subjectRef: "cliente-9f3c2a"
+                  countryCode: "BO"
+                  documentType: "CI_BO"
+                  flowName: "Standard-eKYC-Latam"
+                  locale: "es-BO"
+                  callbackUrl: "https://banco.example/webhooks/onboarding"
+              pasaporteMexicano:
+                summary: Pasaporte mexicano, flujo con veredicto automático
+                value:
+                  subjectRef: "usuario-4471"
+                  countryCode: "MX"
+                  documentType: "PASSPORT"
+                  flowName: "Standard-eKYC-Latam"
+      responses:
+        '201':
+          description: Sesión creada.
+          headers:
+            Location: { schema: { type: string, format: uri }, description: URL de la sesión creada. }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Session' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /sessions/{sessionId}:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+    get:
+      tags: [Sesiones]
+      operationId: getSession
+      summary: Consulta el estado de una sesión
+      responses:
+        '200':
+          description: Estado actual.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Session' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Sesiones]
+      operationId: cancelSession
+      summary: Cancela una sesión en curso
+      description: |
+        Cancelar no purga. La sesión pasa a `CANCELLED` y sus artefactos siguen el ciclo de
+        retención acordado con el responsable del tratamiento. Para eliminar los datos, use
+        `POST /privacy/erasure-requests`.
+      responses:
+        '204': { description: Sesión cancelada. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /sessions/{sessionId}/artifacts:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+    post:
+      tags: [Artefactos]
+      operationId: requestArtifactUpload
+      summary: Solicita una URL prefirmada para cargar un artefacto
+      description: |
+        Devuelve una URL de carga directa al almacenamiento de objetos, con vencimiento corto.
+        El binario **nunca** atraviesa esta API. Tras completar la carga, confirme con
+        `POST /sessions/{sessionId}/artifacts/{artifactId}/complete` para que el plan avance.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ArtifactUploadRequest' }
+      responses:
+        '201':
+          description: URL de carga emitida.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ArtifactUploadTicket' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '413':
+          description: El tamaño declarado excede el máximo admitido para ese tipo de artefacto.
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /sessions/{sessionId}/artifacts/{artifactId}/complete:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+      - name: artifactId
+        in: path
+        required: true
+        schema: { type: string, minLength: 1, maxLength: 64 }
+    post:
+      tags: [Artefactos]
+      operationId: completeArtifactUpload
+      summary: Confirma la carga de un artefacto y desbloquea los pasos que dependen de él
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sha256]
+              properties:
+                sha256:
+                  type: string
+                  pattern: '^[a-f0-9]{64}$'
+                  description: |
+                    Resumen del contenido cargado. El middleware lo verifica contra el objeto
+                    almacenado antes de aceptar el artefacto; una discrepancia produce `422`.
+                sizeBytes: { type: integer, minimum: 1 }
+      responses:
+        '200':
+          description: Artefacto aceptado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Session' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/UnprocessableEntity' }
+
+  /sessions/{sessionId}/decision:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+    get:
+      tags: [Decisión]
+      operationId: getDecision
+      summary: Obtiene el veredicto o las señales de la sesión
+      description: |
+        Cuando el flujo está configurado con `decisionIssuer = SIGNALS_ONLY`, el campo `outcome`
+        vale `SIGNALS_ONLY` y la responsabilidad de decidir queda en el sistema requirente.
+        Las señales y sus umbrales se devuelven íntegros para que la decisión del cliente sea auditable.
+      responses:
+        '200':
+          description: Resultado disponible.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DecisionResult' }
+        '202':
+          description: La sesión aún no ha decidido. `Retry-After` indica cuándo reintentar.
+          headers:
+            Retry-After: { schema: { type: integer }, description: Segundos sugeridos. }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /sessions/{sessionId}/audit:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+    get:
+      tags: [Decisión]
+      operationId: getAuditTrail
+      summary: Recupera la cadena de auditoría de la sesión
+      description: |
+        Devuelve los eventos de auditoría en orden, cada uno con el resumen del evento anterior.
+        La cadena permite verificar de forma independiente que el registro no fue alterado.
+        No contiene datos personales en claro.
+      responses:
+        '200':
+          description: Cadena de auditoría.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sessionId, events, chainValid]
+                properties:
+                  sessionId: { type: string }
+                  chainValid:
+                    type: boolean
+                    description: Resultado de la verificación del encadenamiento por hash.
+                  events:
+                    type: array
+                    items: { $ref: '#/components/schemas/AuditEvent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /reviews:
+    get:
+      tags: [Revisión humana]
+      operationId: listPendingReviews
+      summary: Lista las sesiones pendientes de revisión manual
+      parameters:
+        - name: state
+          in: query
+          schema: { type: string, enum: [PENDING_REVIEW, IN_REVIEW] }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: cursor
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Página de casos.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/ReviewCase' }
+                  nextCursor: { type: string, nullable: true }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /reviews/{sessionId}/resolution:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+    post:
+      tags: [Revisión humana]
+      operationId: resolveReview
+      summary: Registra la resolución de un analista de cumplimiento
+      description: |
+        La resolución se escribe en un almacenamiento inmutable (Object Lock en S3 o Bucket Lock
+        en GCS) antes de reanudar el flujo. Si la escritura del registro inmutable falla, la
+        resolución se rechaza: no se admite una decisión de cumplimiento sin rastro.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReviewResolution' }
+      responses:
+        '200':
+          description: Resolución registrada y flujo reanudado.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DecisionResult' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /capabilities:
+    get:
+      tags: [Capacidades]
+      operationId: listCapabilities
+      summary: Lista las capacidades y proveedores habilitados para el inquilino
+      responses:
+        '200':
+          description: Catálogo vigente.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/CapabilityBinding' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /flows:
+    get:
+      tags: [Capacidades]
+      operationId: listFlowSpecs
+      summary: Lista las especificaciones de flujo activas del inquilino
+      parameters:
+        - name: countryCode
+          in: query
+          schema: { type: string, pattern: '^[A-Z]{2}$' }
+        - name: documentType
+          in: query
+          schema: { $ref: '#/components/schemas/DocumentType' }
+      responses:
+        '200':
+          description: Especificaciones activas.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/FlowSpecSummary' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /privacy/erasure-requests:
+    post:
+      tags: [Privacidad]
+      operationId: requestErasure
+      summary: Solicita la supresión de los datos de un sujeto
+      description: |
+        Ejecuta el flujo de purga asíncrono descrito en `docs/12-retencion-y-borrado.md`.
+
+        La supresión **no es incondicional**: los expedientes bajo obligación legal de
+        conservación —debida diligencia AML— se bloquean en lugar de eliminarse, y la respuesta
+        detalla qué se eliminó y qué quedó retenido con su base legal y su fecha de liberación.
+        Los datos biométricos, que no están cubiertos por la obligación AML, sí se eliminan.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [subjectRef, legalBasis]
+              properties:
+                subjectRef: { type: string, minLength: 1, maxLength: 128 }
+                legalBasis:
+                  type: string
+                  enum: [GDPR_ART_17, LFPDPPP_DERECHO_CANCELACION, LEY_7593_SUPRESION, CONTRACTUAL, OTHER]
+                notes: { type: string, maxLength: 1000 }
+      responses:
+        '202':
+          description: Solicitud aceptada y encolada.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErasureReceipt' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /privacy/erasure-requests/{requestId}:
+    parameters:
+      - name: requestId
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Privacidad]
+      operationId: getErasureStatus
+      summary: Consulta el estado de una solicitud de supresión
+      responses:
+        '200':
+          description: Estado de la purga.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErasureReceipt' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /health:
+    get:
+      tags: [Operación]
+      operationId: health
+      summary: Sonda de salud
+      security: []
+      responses:
+        '200':
+          description: Servicio operativo.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, version]
+                properties:
+                  status: { type: string, enum: [ok, degraded] }
+                  version: { type: string }
+                  cloudProvider: { type: string, enum: [aws, gcp, inmemory] }
+
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Token emitido por el proveedor de identidad federado del inquilino (Amazon Cognito o
+        Identity Platform). Debe incluir el reclamo de inquilino. La autorización se resuelve en
+        el núcleo, no en el gateway: Google Cloud API Gateway no admite autorizadores de código
+        arbitrario, y mantener la lógica en el núcleo la hace portable entre ambas nubes.
+
+  parameters:
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      schema: { type: string, minLength: 1, maxLength: 64 }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, format: uuid }
+      description: |
+        Identificador único de la operación. Repetir la misma petición con la misma clave
+        devuelve el resultado original sin volver a ejecutar el flujo ni volver a facturar
+        llamadas a proveedores externos.
+    CorrelationId:
+      name: X-Correlation-Id
+      in: header
+      required: false
+      schema: { type: string, maxLength: 128 }
+      description: Se propaga a trazas y registros. Si no se envía, el middleware lo genera.
+
+  schemas:
+
+    DocumentType:
+      type: string
+      enum: [PASSPORT, ID_CARD, RESIDENCE_PERMIT, DRIVING_LICENSE, INE_2019, INE_2021, CI_BO, CI_PY, UNKNOWN]
+
+    CreateSessionRequest:
+      type: object
+      required: [subjectRef, countryCode, documentType]
+      properties:
+        subjectRef:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: |
+            Referencia opaca al sujeto en el sistema del inquilino. **No use datos personales**
+            como valor: ni nombre, ni número de documento, ni correo. Se persiste y aparece en
+            el registro de auditoría.
+        countryCode: { type: string, pattern: '^[A-Z]{2}$', description: País emisor del documento (ISO 3166-1 alfa-2). }
+        documentType: { $ref: '#/components/schemas/DocumentType' }
+        flowName:
+          type: string
+          maxLength: 64
+          description: Nombre de la especificación de flujo. Si se omite, se resuelve por país y tipo de documento.
+        locale: { type: string, example: es-BO }
+        callbackUrl:
+          type: string
+          format: uri
+          description: URL a la que se notificará el resultado. Debe ser HTTPS y estar en la lista permitida del inquilino.
+        metadata:
+          type: object
+          maxProperties: 20
+          additionalProperties: { type: string, maxLength: 256 }
+          description: Metadatos opacos del inquilino. Prohibido incluir datos personales.
+
+    Session:
+      type: object
+      required: [sessionId, state, flowName, countryCode, documentType, createdAt, steps, requiredArtifacts]
+      properties:
+        sessionId: { type: string }
+        state: { $ref: '#/components/schemas/SessionState' }
+        flowName: { type: string }
+        flowVersion: { type: integer, description: Versión inmutable de la especificación con la que se compiló esta sesión. }
+        countryCode: { type: string }
+        documentType: { $ref: '#/components/schemas/DocumentType' }
+        subjectRef: { type: string }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        decisionIssuer:
+          type: string
+          enum: [MIDDLEWARE, SIGNALS_ONLY, REQUESTER_CONFIRMS]
+        requiredArtifacts:
+          type: array
+          description: Artefactos que el sujeto debe aportar para que el flujo pueda completarse.
+          items:
+            type: object
+            required: [slot, satisfied]
+            properties:
+              slot: { $ref: '#/components/schemas/ArtifactSlot' }
+              satisfied: { type: boolean }
+        steps:
+          type: array
+          items: { $ref: '#/components/schemas/StepStatus' }
+
+    SessionState:
+      type: string
+      enum:
+        [CREATED, COLLECTING, PROCESSING, AWAITING_SUBJECT, PENDING_REVIEW, IN_REVIEW,
+         DECIDED, RETAINED, BLOCKED, FAILED, EXPIRED, ABANDONED, CANCELLED, PURGED]
+
+    ArtifactSlot:
+      type: string
+      enum: [DOC_FRONT, DOC_BACK, SELFIE, LIVENESS_VIDEO, PROOF_OF_ADDRESS]
+
+    StepStatus:
+      type: object
+      required: [stepId, capability, state]
+      properties:
+        stepId: { type: string }
+        capability:
+          type: string
+          description: Identificador versionado de la capacidad, por ejemplo `ocr.document.v1`.
+        state:
+          type: string
+          enum: [PENDING, READY, RUNNING, RETRYING, FALLBACK, SUCCEEDED, NEGATIVE, INCONCLUSIVE, FAILED, SKIPPED]
+        provider: { type: string, nullable: true, description: Proveedor que ejecutó el paso. }
+        startedAt: { type: string, format: date-time, nullable: true }
+        finishedAt: { type: string, format: date-time, nullable: true }
+        attempts: { type: integer, minimum: 0 }
+
+    ArtifactUploadRequest:
+      type: object
+      required: [slot, contentType, sizeBytes]
+      properties:
+        slot: { $ref: '#/components/schemas/ArtifactSlot' }
+        contentType: { type: string, example: image/jpeg }
+        sizeBytes: { type: integer, minimum: 1 }
+
+    ArtifactUploadTicket:
+      type: object
+      required: [artifactId, uploadUrl, method, expiresAt]
+      properties:
+        artifactId: { type: string }
+        uploadUrl: { type: string, format: uri }
+        method: { type: string, enum: [PUT, POST] }
+        headers:
+          type: object
+          additionalProperties: { type: string }
+          description: Cabeceras que deben acompañar la carga, incluidas las de cifrado del lado del servidor.
+        expiresAt: { type: string, format: date-time }
+
+    IdentityClaimSet:
+      type: object
+      description: |
+        Conjunto canónico de datos de identidad, normalizado desde cualquier país y formato.
+        Cada campo lleva su procedencia y su confianza para que la decisión sea auditable.
+      properties:
+        firstName: { $ref: '#/components/schemas/Claim' }
+        lastName: { $ref: '#/components/schemas/Claim' }
+        idNumber: { $ref: '#/components/schemas/Claim' }
+        birthDate: { $ref: '#/components/schemas/Claim' }
+        expiryDate: { $ref: '#/components/schemas/Claim' }
+        issuingState: { $ref: '#/components/schemas/Claim' }
+        nationality: { $ref: '#/components/schemas/Claim' }
+        sex: { $ref: '#/components/schemas/Claim' }
+
+    Claim:
+      type: object
+      required: [value, source, confidence]
+      properties:
+        value: { type: string }
+        source:
+          type: string
+          enum: [MRZ, OCR, LLM, SUBJECT_DECLARED, REGISTRY, HUMAN_REVIEW]
+        confidence: { type: number, minimum: 0, maximum: 1 }
+        corroboratedBy:
+          type: array
+          items: { type: string }
+          description: Otras fuentes que coinciden con este valor. Un dato corroborado por MRZ y OCR es más fuerte que uno solo del LLM.
+
+    DecisionResult:
+      type: object
+      required: [sessionId, outcome, issuer, source, decidedAt, signals]
+      properties:
+        sessionId: { type: string }
+        outcome:
+          type: string
+          enum: [APPROVED, REJECTED, MANUAL_REVIEW, SIGNALS_ONLY, INCONCLUSIVE]
+        issuer:
+          type: string
+          enum: [MIDDLEWARE, SIGNALS_ONLY, REQUESTER_CONFIRMS]
+        source:
+          type: string
+          enum: [AUTOMATED_POLICY, HUMAN_REVIEWER, REQUESTER, SYSTEM_TIMEOUT]
+        decidedAt: { type: string, format: date-time }
+        identity: { $ref: '#/components/schemas/IdentityClaimSet' }
+        signals:
+          type: array
+          description: Señales que sustentan el veredicto, con su umbral aplicado. Esto es lo que hace auditable la decisión.
+          items:
+            type: object
+            required: [name, value, threshold, passed]
+            properties:
+              name: { type: string, example: biometrics.facematch.similarity }
+              value: { type: number }
+              threshold: { type: number }
+              passed: { type: boolean }
+              provider: { type: string }
+              modelVersion: { type: string, description: Versión del modelo que produjo la señal. Necesaria para reproducir la decisión años después. }
+        reasons:
+          type: array
+          description: Códigos de razón estables y legibles por máquina.
+          items: { type: string, example: MRZ_CHECKDIGIT_MISMATCH }
+        auditChainHead: { type: string, description: Resumen del último evento de la cadena de auditoría al momento de decidir. }
+
+    ReviewCase:
+      type: object
+      required: [sessionId, state, queuedAt, reasons]
+      properties:
+        sessionId: { type: string }
+        state: { type: string, enum: [PENDING_REVIEW, IN_REVIEW] }
+        queuedAt: { type: string, format: date-time }
+        assignedTo: { type: string, nullable: true }
+        slaExpiresAt: { type: string, format: date-time, nullable: true }
+        reasons: { type: array, items: { type: string } }
+
+    ReviewResolution:
+      type: object
+      required: [outcome, reviewerId, rationale]
+      properties:
+        outcome: { type: string, enum: [APPROVED, REJECTED, INCONCLUSIVE] }
+        reviewerId: { type: string, description: Identidad del analista. Se registra en el log inmutable. }
+        rationale: { type: string, minLength: 10, maxLength: 2000 }
+        overriddenSignals:
+          type: array
+          description: Señales automáticas que el analista contradice explícitamente. Obligatorio declararlas.
+          items: { type: string }
+
+    CapabilityBinding:
+      type: object
+      required: [capability, providers]
+      properties:
+        capability: { type: string, example: ocr.document.v1 }
+        status: { type: string, enum: [AVAILABLE, BUILDING, PLANNED, DEPRECATED] }
+        providers:
+          type: array
+          items:
+            type: object
+            required: [providerId, kind, enabled]
+            properties:
+              providerId: { type: string }
+              kind:
+                type: string
+                enum: [MANAGED_AWS, MANAGED_GCP, SAAS_THIRD_PARTY, OPEN_SOURCE_LOCAL, LLM_MULTIMODAL, INTERNAL]
+              enabled: { type: boolean }
+              version: { type: string }
+              regions: { type: array, items: { type: string } }
+
+    FlowSpecSummary:
+      type: object
+      required: [flowName, version, countryCode, documentType, active]
+      properties:
+        flowName: { type: string }
+        version: { type: integer }
+        countryCode: { type: string }
+        documentType: { $ref: '#/components/schemas/DocumentType' }
+        active: { type: boolean }
+        decisionIssuer: { type: string, enum: [MIDDLEWARE, SIGNALS_ONLY, REQUESTER_CONFIRMS] }
+        stepCount: { type: integer }
+        updatedAt: { type: string, format: date-time }
+
+    ErasureReceipt:
+      type: object
+      required: [requestId, status, requestedAt]
+      properties:
+        requestId: { type: string }
+        status: { type: string, enum: [QUEUED, IN_PROGRESS, COMPLETED, PARTIALLY_RETAINED, FAILED] }
+        requestedAt: { type: string, format: date-time }
+        completedAt: { type: string, format: date-time, nullable: true }
+        erased:
+          type: object
+          properties:
+            sessions: { type: integer }
+            objects: { type: integer }
+            biometricTemplates: { type: integer }
+        retained:
+          type: array
+          description: Lo que no se eliminó, con su base legal. La transparencia sobre esto es un requisito, no una cortesía.
+          items:
+            type: object
+            required: [scope, legalBasis, releaseAt]
+            properties:
+              scope: { type: string, example: KYC_FILE }
+              legalBasis: { type: string, example: "Obligación de conservación AML — 5 años tras el fin de la relación" }
+              releaseAt: { type: string, format: date-time }
+        cryptoShredded:
+          type: boolean
+          description: Indica si se programó la destrucción de la clave del inquilino. Solo aplica a la baja completa de un inquilino en modelo silo.
+
+    AuditEvent:
+      type: object
+      required: [eventId, sequence, type, occurredAt, hash, previousHash]
+      properties:
+        eventId: { type: string }
+        sequence: { type: integer, minimum: 0 }
+        type: { type: string, example: STEP_COMPLETED }
+        occurredAt: { type: string, format: date-time }
+        actor: { type: string, description: Sistema, proveedor o analista que originó el evento. }
+        payloadDigest: { type: string, description: Resumen del contenido del evento. El contenido en claro no se expone por esta API. }
+        previousHash: { type: string }
+        hash: { type: string }
+
+    Problem:
+      type: object
+      description: Respuesta de error conforme a RFC 9457.
+      required: [type, title, status, code]
+      properties:
+        type: { type: string, format: uri, default: about:blank }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string, description: "Descripción legible. Nunca contiene datos personales." }
+        instance: { type: string }
+        code:
+          type: string
+          description: Código estable de error del middleware.
+          examples: [FLOW_SPEC_NOT_FOUND, TENANT_MISMATCH, CAPABILITY_NOT_AUTHORIZED, IDEMPOTENCY_CONFLICT, ARTIFACT_DIGEST_MISMATCH, PROVIDER_UNAVAILABLE]
+        correlationId: { type: string }
+        retryable: { type: boolean }
+
+  responses:
+    BadRequest:
+      description: Petición malformada.
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+    Unauthorized:
+      description: Token ausente, expirado o inválido.
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+    Forbidden:
+      description: El inquilino del token no tiene acceso al recurso, o la capacidad no está autorizada para él.
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+    NotFound:
+      description: |
+        El recurso no existe **o pertenece a otro inquilino**. No se distingue entre ambos casos
+        a propósito: revelar la existencia de un recurso ajeno ya es una fuga.
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+    Conflict:
+      description: El estado actual de la sesión no admite esta operación, o la clave de idempotencia se reutilizó con un cuerpo distinto.
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+    UnprocessableEntity:
+      description: La petición es sintácticamente válida pero no puede procesarse.
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+    TooManyRequests:
+      description: Se superó el límite de tasa del plan de uso del inquilino.
+      headers:
+        Retry-After: { schema: { type: integer } }
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }

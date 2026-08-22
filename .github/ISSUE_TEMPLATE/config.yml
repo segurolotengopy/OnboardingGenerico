@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Vulnerabilidad de seguridad
+    url: https://github.com/segurolotengopy/OnboardingGenerico/security/advisories/new
+    about: No abra un issue público. Use el canal privado de reporte.
+  - name: Documentación de arquitectura
+    url: https://github.com/segurolotengopy/OnboardingGenerico/blob/main/docs/00-indice.md
+    about: Antes de proponer un cambio estructural, revise los ADR vigentes.

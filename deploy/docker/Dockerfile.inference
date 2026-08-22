@@ -1,0 +1,84 @@
+# =============================================================================
+# Imagen del plano de inferencia: visión artificial y modelos ONNX.
+#
+# Advertencias de despliegue, aprendidas de las diferencias reales entre nubes:
+#
+#  - AWS Lambda admite imágenes de hasta 10 GB descomprimidas y asigna CPU de
+#    forma proporcional a la memoria. Dimensione la memoria por perfilado medido,
+#    no por una cifra heredada.
+#  - Cloud Run admite hasta 32 GiB y 8 vCPU, pero su sistema de archivos
+#    escribible es tmpfs y CONSUME esa misma memoria. Escribir intermedios en
+#    /tmp reduce la memoria disponible para el modelo.
+#  - Cloud Run puede servir hasta 1000 peticiones concurrentes por instancia.
+#    ONNX Runtime configurado en modo secuencial no lo soporta: fije la
+#    concurrencia entre 1 y 4 para inferencia pesada.
+#  - Los pesos se hornean en la imagen, no se descargan al arrancar. Descargarlos
+#    en el arranque en frío multiplica la latencia del primer request y crea una
+#    dependencia de red en el peor momento posible.
+#
+# LICENCIAS: antes de copiar cualquier modelo a esta imagen, verifique la
+# licencia de los PESOS, que es independiente de la del código. Varios modelos
+# habituales en este dominio son de uso exclusivamente investigativo.
+# Ver docs/15-catalogo-de-proveedores-y-licencias.md y docs/adr/0012-*.md
+# =============================================================================
+
+FROM python:3.12-slim AS builder
+
+ENV PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
+WORKDIR /build
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY pyproject.toml README.md ./
+COPY src/ ./src/
+
+RUN python -m venv /opt/venv \
+    && /opt/venv/bin/pip install --upgrade pip \
+    && /opt/venv/bin/pip install ".[cv]"
+
+# -----------------------------------------------------------------------------
+
+FROM python:3.12-slim AS runtime
+
+LABEL org.opencontainers.image.title="onboarding-generico-inference" \
+      org.opencontainers.image.source="https://github.com/segurolotengopy/OnboardingGenerico" \
+      org.opencontainers.image.licenses="Apache-2.0"
+
+ENV PATH="/opt/venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    OG_REDACT_PII=true \
+    # ONNX Runtime en modo secuencial estricto. Forzar paralelismo dentro de un
+    # entorno serverless con pocos hilos virtuales degrada el rendimiento por
+    # cambio de contexto en vez de mejorarlo.
+    OMP_NUM_THREADS=1 \
+    ORT_INTRA_OP_NUM_THREADS=1 \
+    ORT_INTER_OP_NUM_THREADS=1
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libgl1 libglib2.0-0 ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home --uid 10001 appuser
+
+COPY --from=builder /opt/venv /opt/venv
+
+WORKDIR /app
+
+# Los pesos se montan aquí en tiempo de construcción del despliegue real.
+# El directorio se crea vacío a propósito: este repositorio no distribuye modelos.
+RUN mkdir -p /app/models && chown appuser:appuser /app/models
+COPY --chown=appuser:appuser deploy/docker/models.README.md /app/models/README.md
+
+USER appuser
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+    CMD curl -fsS http://localhost:8080/health || exit 1
+
+# El precalentamiento de los modelos ocurre en la importación del módulo, fuera
+# del manejador, para que suceda una sola vez por contenedor y quede en caché
+# caliente para las invocaciones siguientes.
+CMD ["python", "-m", "onboarding_generico.handlers.gcp.entrypoints", "--inference"]

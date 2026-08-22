@@ -1,0 +1,72 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.python-version
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Terraform / OpenTofu
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+backend.tf
+!backend.tf.example
+terraform.tfvars
+*.auto.tfvars
+!*.tfvars.example
+
+# Secretos y credenciales — nunca versionar
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+service-account*.json
+aws-credentials*
+
+# Modelos y artefactos pesados (se publican en el registro de contenedores)
+models/
+*.onnx
+*.pth
+*.caffemodel
+*.tflite
+*.traineddata
+
+# Datos de prueba con PII real — prohibido versionar
+data/real/
+samples/pii/
+*.identity.json
+
+# Sistema operativo y editores
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+!.vscode/extensions.json
+*.swp
+
+# Artefactos locales
+tmp/
+.cache/
+node_modules/

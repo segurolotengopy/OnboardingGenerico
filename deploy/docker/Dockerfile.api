@@ -1,0 +1,57 @@
+# =============================================================================
+# Imagen del plano de control: API, motor de composición y despacho de pasos.
+# Sirve tanto para AWS Lambda (runtime interface client) como para Cloud Run.
+# Es deliberadamente ligera: no lleva modelos ni OpenCV. La inferencia vive en
+# Dockerfile.inference, para que un cambio en la API no obligue a reconstruir
+# ni a redistribuir cientos de megabytes de pesos.
+# =============================================================================
+
+FROM python:3.12-slim AS builder
+
+ENV PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+WORKDIR /build
+
+COPY pyproject.toml README.md ./
+COPY src/ ./src/
+
+# El extra se elige en tiempo de construcción para no arrastrar los SDK de las
+# dos nubes en la misma imagen.
+ARG CLOUD_EXTRA=aws
+RUN python -m venv /opt/venv \
+    && /opt/venv/bin/pip install --upgrade pip \
+    && /opt/venv/bin/pip install ".[api,${CLOUD_EXTRA}]"
+
+# -----------------------------------------------------------------------------
+
+FROM python:3.12-slim AS runtime
+
+LABEL org.opencontainers.image.title="onboarding-generico-api" \
+      org.opencontainers.image.description="Plano de control del middleware de onboarding" \
+      org.opencontainers.image.source="https://github.com/segurolotengopy/OnboardingGenerico" \
+      org.opencontainers.image.licenses="Apache-2.0"
+
+ENV PATH="/opt/venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    OG_CLOUD_PROVIDER=aws \
+    OG_REDACT_PII=true
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --create-home --uid 10001 appuser
+
+COPY --from=builder /opt/venv /opt/venv
+
+WORKDIR /app
+USER appuser
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD curl -fsS http://localhost:8080/v1/health || exit 1
+
+CMD ["uvicorn", "onboarding_generico.handlers.gcp.entrypoints:app", \
+     "--host", "0.0.0.0", "--port", "8080", "--workers", "2"]

@@ -1,0 +1,184 @@
+{
+  "apiVersion": "og.flow/v1",
+  "kind": "FlowSpec",
+  "metadata": {
+    "name": "Standard-eKYC-Latam",
+    "tenant": "GLOBAL",
+    "version": "1.0.0",
+    "description": "Plantilla base de onboarding para LATAM: alineacion, extraccion OCR con proveedor de reserva, liveness y comparacion biometrica."
+  },
+  "resolution": {
+    "countries": ["MX", "BO", "PY"],
+    "document_types": ["INE_2019", "CI_BO", "CI_PY", "PASSPORT"],
+    "tiers": ["IAL2"],
+    "priority": 100
+  },
+  "required_artifacts": [
+    {
+      "slot": "DOC_FRONT",
+      "mime_types": ["image/jpeg", "image/png"],
+      "max_bytes": 12000000,
+      "data_class": "DOCUMENT"
+    },
+    {
+      "slot": "DOC_BACK",
+      "mime_types": ["image/jpeg", "image/png"],
+      "max_bytes": 12000000,
+      "data_class": "DOCUMENT"
+    },
+    {
+      "slot": "SELFIE",
+      "mime_types": ["image/jpeg"],
+      "max_bytes": 8000000,
+      "data_class": "BIOMETRIC",
+      "purge_after_decision": true
+    }
+  ],
+  "steps": [
+    {
+      "id": "document_alignment",
+      "capability": "document.alignment.v1@^1.0",
+      "provider": "opencv_alignment",
+      "inputs": {
+        "artifact_ref": "${artifacts.DOC_FRONT.pointer}",
+        "page": "FRONT"
+      },
+      "thresholds": {
+        "min_sharpness": 0.55,
+        "max_glare": 0.3,
+        "min_resolution_px": 1000
+      },
+      "on_failure": "REQUEST_RECAPTURE"
+    },
+    {
+      "id": "data_extraction_ocr",
+      "capability": "ocr.document.v1@^1.4",
+      "depends_on": ["document_alignment"],
+      "provider": "textract_ocr",
+      "fallback_provider": ["documentai_ocr", "tesseract_ocr"],
+      "inputs": {
+        "artifact_ref": "${steps.document_alignment.output.aligned_ref}",
+        "page": "FRONT"
+      },
+      "thresholds": {
+        "min_field_confidence": 0.85
+      },
+      "retries": {
+        "max": 2,
+        "base_ms": 200,
+        "jitter": "full"
+      },
+      "on_failure": "HUMAN_REVIEW"
+    },
+    {
+      "id": "semantic_extraction",
+      "capability": "extraction.semantic.v1@^2.1",
+      "depends_on": ["data_extraction_ocr"],
+      "provider": "claude_primary",
+      "fallback_provider": ["claude_secondary"],
+      "inputs": {
+        "template": "country/document",
+        "text": "${steps.data_extraction_ocr.output.text}"
+      },
+      "thresholds": {
+        "min_field_confidence": 0.85,
+        "min_global_confidence": 0.9
+      },
+      "on_failure": "HUMAN_REVIEW"
+    },
+    {
+      "id": "mrz_parse",
+      "capability": "mrz.parse.v1@^1.2",
+      "depends_on": ["data_extraction_ocr"],
+      "provider": "local_mrz",
+      "inputs": {
+        "text": "${steps.data_extraction_ocr.output.text}"
+      },
+      "required": false,
+      "on_failure": "CONTINUE"
+    },
+    {
+      "id": "cross_field_validation",
+      "capability": "validation.crossfield.v1@^1.1",
+      "depends_on": ["semantic_extraction", "mrz_parse"],
+      "provider": "internal_crossfield",
+      "inputs": {
+        "claims": "${steps.semantic_extraction.output.claims}",
+        "mrz_claims": "${steps.mrz_parse.output.claims}"
+      },
+      "thresholds": {
+        "max_discrepancies": 0
+      },
+      "on_failure": "HUMAN_REVIEW"
+    },
+    {
+      "id": "liveness_check",
+      "capability": "biometrics.liveness.v2@^2.0",
+      "depends_on": ["document_alignment"],
+      "provider": "saas_liveness",
+      "inputs": {
+        "subject_ref": "${session.subject}"
+      },
+      "thresholds": {
+        "min_score": 0.9
+      },
+      "wait": "LONG",
+      "compensable": false,
+      "retries": {
+        "max": 1
+      }
+    },
+    {
+      "id": "biometric_matching",
+      "capability": "biometrics.facematch.v1@^1.3",
+      "depends_on": ["liveness_check", "semantic_extraction"],
+      "provider": "insightface_match",
+      "fallback_provider": ["rekognition_facematch"],
+      "inputs": {
+        "reference": "${steps.liveness_check.output.audited_image_ref}",
+        "candidate": "${artifacts.SELFIE.pointer}"
+      },
+      "thresholds": {
+        "min_similarity": 0.82,
+        "grey_band_low": 0.74,
+        "target_fmr": 0.0001,
+        "target_fnmr": 0.01
+      },
+      "on_failure": "HUMAN_REVIEW"
+    }
+  ],
+  "decision_policy": {
+    "issuer": "SIGNALS_ONLY",
+    "default": "APPROVED",
+    "rules": [
+      {
+        "when": "steps.liveness_check.output.injection_detected",
+        "then": "REJECTED",
+        "reason": "PAD_INJECTION_DETECTED"
+      },
+      {
+        "when": "steps.liveness_check.output.score < thresholds.min_score",
+        "then": "REJECTED",
+        "reason": "PAD_FAILED"
+      },
+      {
+        "when": "steps.biometric_matching.output.similarity in grey_band",
+        "then": "MANUAL_REVIEW",
+        "reason": "FACE_GREY_BAND"
+      },
+      {
+        "when": "steps.biometric_matching.output.similarity < thresholds.grey_band_low",
+        "then": "REJECTED",
+        "reason": "FACE_NO_MATCH"
+      },
+      {
+        "when": "steps.data_extraction_ocr.output.min_confidence < thresholds.min_field_confidence",
+        "then": "MANUAL_REVIEW",
+        "reason": "OCR_LOW_CONFIDENCE"
+      }
+    ]
+  },
+  "retention": {
+    "inherits_from": "tenant"
+  }
+}

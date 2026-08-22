@@ -1,0 +1,50 @@
+name: Documentación
+
+on:
+  pull_request:
+    paths: ["docs/**", "*.md", "api/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  enlaces:
+    name: Enlaces internos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Verificar que ningún enlace relativo esté roto
+        run: python scripts/check_docs_links.py
+
+  erratas:
+    name: Afirmaciones prohibidas
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Impedir la reintroducción de cifras desmentidas
+        run: |
+          # Ocho afirmaciones de la especificación de origen resultaron falsas al
+          # verificarlas. Este control impide que vuelvan a colarse por copiar y pegar.
+          # El catálogo completo está en docs/20-fe-de-erratas-del-spec-original.md,
+          # que es el único archivo autorizado a citarlas para desmentirlas.
+          patrones=(
+            "3008 MB"
+            "3,008 MB"
+            "AVX-512"
+            "72.5%"
+            "72,5 %"
+            "CachingCryptoMaterialsManager para"
+          )
+          fallo=0
+          for p in "${patrones[@]}"; do
+            if grep -rniF -- "$p" docs/ README.md CLAUDE.md \
+                 --exclude-dir=referencias \
+                 --exclude="20-fe-de-erratas-del-spec-original.md" ; then
+              echo "::error::Afirmación desmentida reintroducida: '$p'"
+              fallo=1
+            fi
+          done
+          exit $fallo

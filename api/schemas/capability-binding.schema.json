@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/segurolotengopy/OnboardingGenerico/api/schemas/capability-binding.schema.json",
+  "title": "Vínculo entre capacidad y proveedor en el Registro de Capacidades",
+  "description": "Declara qué proveedores implementan una capacidad y bajo qué condiciones puede usarlos un inquilino. El Composer valida contra estos registros antes de compilar un flujo: una especificación que referencia un proveedor no autorizado se rechaza en tiempo de resolución, no en tiempo de ejecución.",
+  "type": "object",
+  "required": ["capability", "providerId", "kind", "enabled", "clouds"],
+  "additionalProperties": false,
+  "properties": {
+    "capability": { "type": "string", "pattern": "^[a-z]+(\\.[a-z]+)+\\.v[0-9]+$" },
+    "providerId": { "type": "string", "pattern": "^[a-z0-9_-]{2,64}$" },
+    "kind": { "enum": ["MANAGED_AWS", "MANAGED_GCP", "SAAS_THIRD_PARTY", "OPEN_SOURCE_LOCAL", "LLM_MULTIMODAL", "INTERNAL"] },
+    "status": { "enum": ["AVAILABLE", "BUILDING", "PLANNED", "DEPRECATED"], "default": "AVAILABLE" },
+    "enabled": { "type": "boolean" },
+    "adapterModule": { "type": "string", "description": "Ruta del módulo Python del adaptador, por ejemplo 'onboarding_generico.adapters.aws.ai:TextractOcrAdapter'." },
+    "version": { "type": "string" },
+    "modelVersion": { "type": "string", "description": "Versión del modelo subyacente. Necesaria para reproducir una decisión meses o años después de tomada." },
+    "clouds": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": { "enum": ["aws", "gcp", "any"] },
+      "description": "Nubes en las que este proveedor puede ejecutarse. 'any' aplica a proveedores SaaS y a componentes locales en contenedor."
+    },
+    "regions": { "type": "array", "items": { "type": "string" }, "description": "Regiones habilitadas. Restringirlas es el mecanismo de residencia de datos." },
+    "allowedTenants": {
+      "type": "array", "items": { "type": "string" },
+      "description": "Lista de inquilinos autorizados. Ausente significa disponible para todos los inquilinos del entorno; presente y vacía significa deshabilitado para todos."
+    },
+    "supportedCountries": { "type": "array", "items": { "type": "string", "pattern": "^([A-Z]{2}|\\*)$" } },
+    "supportedDocumentTypes": { "type": "array", "items": { "enum": ["NATIONAL_ID", "PASSPORT", "DRIVER_LICENSE", "RESIDENCE_PERMIT", "FOREIGNER_ID", "OTHER", "*"] } },
+    "costModel": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "unit": { "enum": ["PER_CALL", "PER_PAGE", "PER_SECOND", "PER_TOKEN", "INCLUDED"] },
+        "currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
+        "unitCost": { "type": "number", "minimum": 0 }
+      }
+    },
+    "sla": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "p95LatencyMs": { "type": "integer", "minimum": 1 },
+        "availability": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "compliance": {
+      "type": "object",
+      "description": "Atributos que condicionan el uso del proveedor en contextos regulados.",
+      "additionalProperties": false,
+      "properties": {
+        "codeLicense": { "type": "string", "description": "Licencia del código, verificada. Ver docs/15-catalogo-de-proveedores-y-licencias.md" },
+        "modelWeightsLicense": { "type": "string", "description": "Licencia de los pesos del modelo. Se evalúa por separado de la del código: varios modelos habituales en este dominio son de uso exclusivamente investigativo aunque su código sea permisivo." },
+        "commercialUseApproved": { "type": "boolean" },
+        "padCertification": { "type": "string", "description": "Certificación de detección de ataques de presentación, por ejemplo 'iBeta Level 2'. Nótese que no acredita detección de ataques de inyección." },
+        "subprocessorAgreement": { "type": "boolean", "description": "Existe acuerdo de subencargado firmado. Requisito del Art. 28 del GDPR para poder subcontratar." },
+        "dataResidencyGuaranteed": { "type": "boolean" }
+      }
+    },
+    "updatedAt": { "type": "string", "format": "date-time" }
+  }
+}

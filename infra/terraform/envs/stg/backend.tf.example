@@ -1,0 +1,63 @@
+# ---------------------------------------------------------------------------
+# Backend remoto del estado (stg).
+#
+# Copie este archivo a backend.tf y sustituya los marcadores. El estado contiene
+# valores sensibles (secretos de cliente, valores de claves de API): el bucket
+# debe estar cifrado, versionado y con acceso publico bloqueado.
+#
+# Use UNO de los dos bloques, no ambos: un mismo directorio de Terraform tiene
+# un solo backend, aunque despliegue en dos nubes.
+# ---------------------------------------------------------------------------
+
+# --- Opcion A: AWS (S3 + bloqueo) ------------------------------------------
+#
+# El bloqueo por tabla de DynamoDB (`dynamodb_table`) sigue funcionando, pero
+# desde la version 5 del provider se prefiere `use_lockfile`, que usa el propio
+# S3 y evita mantener una tabla adicional. Aqui se muestran ambos.
+
+terraform {
+  backend "s3" {
+    bucket = "REEMPLAZAR-og-tfstate"
+    key    = "onboarding-generico/stg/terraform.tfstate"
+    region = "us-east-1"
+
+    encrypt    = true
+    kms_key_id = "REEMPLAZAR-arn-de-la-llave-kms"
+
+    # Bloqueo nativo de S3 (recomendado).
+    use_lockfile = true
+
+    # Alternativa clasica con tabla de DynamoDB:
+    # dynamodb_table = "REEMPLAZAR-og-tfstate-lock"
+  }
+}
+
+# --- Opcion B: GCP (Cloud Storage) -----------------------------------------
+#
+# Cloud Storage implementa el bloqueo de estado de forma nativa: no hace falta
+# ningun recurso adicional equivalente a la tabla de DynamoDB.
+#
+# terraform {
+#   backend "gcs" {
+#     bucket = "REEMPLAZAR-og-tfstate"
+#     prefix = "onboarding-generico/stg"
+#
+#     # CMEK del bucket de estado. El bucket debe tener versionado activo y
+#     # borrado suave DESACTIVADO no es necesario aqui: para el estado, la
+#     # retencion es una ventaja.
+#     kms_key_name = "projects/REEMPLAZAR/locations/us-central1/keyRings/REEMPLAZAR/cryptoKeys/tfstate"
+#   }
+# }
+
+# ---------------------------------------------------------------------------
+# Requisitos del bucket de estado (se aprovisiona FUERA de este arbol, en un
+# bootstrap separado, porque no puede depender de si mismo):
+#
+#   S3:  versionado activo, cifrado SSE-KMS, bloqueo total de acceso publico,
+#        politica que deniegue aws:SecureTransport false.
+#   GCS: versionado activo, uniform bucket-level access, prevencion de acceso
+#        publico en modo enforced, CMEK.
+#
+# Y en ambos casos: acceso restringido al rol de despliegue, con lectura
+# auditada. El estado de Terraform es un objetivo de alto valor.
+# ---------------------------------------------------------------------------

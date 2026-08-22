@@ -1,0 +1,58 @@
+name: Reporte de error
+description: Comportamiento incorrecto del middleware
+labels: ["error", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **No incluya datos personales reales.** Ni documentos, ni imágenes faciales, ni números de identidad,
+        ni siquiera propios. Reproduzca el problema con los datos sintéticos de `tests/fixtures/`.
+        Si el problema es de seguridad, no abra un issue: siga [SECURITY.md](../../SECURITY.md).
+  - type: textarea
+    id: descripcion
+    attributes:
+      label: Qué ocurre
+      description: Comportamiento observado frente al esperado.
+    validations: { required: true }
+  - type: textarea
+    id: reproduccion
+    attributes:
+      label: Cómo reproducirlo
+      value: |
+        1.
+        2.
+        3.
+    validations: { required: true }
+  - type: dropdown
+    id: componente
+    attributes:
+      label: Componente
+      options:
+        - Núcleo del dominio (incluye MRZ y decisión)
+        - Motor de composición
+        - Criptografía y gestión de claves
+        - Adaptador de AWS
+        - Adaptador de GCP
+        - Adaptador de proveedor
+        - Infraestructura (Terraform)
+        - Documentación
+        - Otro
+    validations: { required: true }
+  - type: input
+    id: version
+    attributes: { label: Versión o commit }
+    validations: { required: true }
+  - type: textarea
+    id: entorno
+    attributes:
+      label: Entorno
+      value: |
+        - Nube: aws | gcp | inmemory
+        - Python:
+        - Región:
+  - type: textarea
+    id: registros
+    attributes:
+      label: Registros o trazas
+      description: Incluya el `correlationId`. Redacte cualquier dato personal.
+      render: text

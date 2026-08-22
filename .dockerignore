@@ -1,0 +1,17 @@
+.git
+.github
+.venv
+docs
+infra
+tests
+*.md
+!README.md
+__pycache__
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.terraform
+*.tfstate*
+.env
+deploy/docker/models/*
+!deploy/docker/models.README.md

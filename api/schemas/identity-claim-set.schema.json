@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/segurolotengopy/OnboardingGenerico/api/schemas/identity-claim-set.schema.json",
+  "title": "Conjunto canónico de datos de identidad",
+  "description": "Esquema unificado al que se normalizan los datos extraídos de cualquier documento de identidad, de cualquier país y formato. Es el contrato que hace intercambiables a los proveedores de OCR y de extracción semántica: un adaptador nuevo debe emitir esta forma, no la suya.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["idNumber", "lastName", "birthDate"],
+  "properties": {
+    "firstName": { "$ref": "#/$defs/claim" },
+    "middleName": { "$ref": "#/$defs/claim" },
+    "lastName": { "$ref": "#/$defs/claim" },
+    "secondLastName": { "$ref": "#/$defs/claim", "description": "Segundo apellido. Presente en la mayoría de los documentos de países hispanohablantes y ausente del esquema de la mayoría de proveedores anglosajones; mapearlo a 'middleName' es un error frecuente y corrompe el emparejamiento." },
+    "idNumber": { "$ref": "#/$defs/claim" },
+    "secondaryIdNumber": { "$ref": "#/$defs/claim", "description": "Identificador adicional cuando el documento lo lleva: CURP en México, complemento alfanumérico en la cédula boliviana, RUC en Paraguay." },
+    "birthDate": { "$ref": "#/$defs/dateClaim" },
+    "issueDate": { "$ref": "#/$defs/dateClaim" },
+    "expiryDate": { "$ref": "#/$defs/dateClaim" },
+    "sex": { "$ref": "#/$defs/claim" },
+    "nationality": { "$ref": "#/$defs/claim" },
+    "issuingState": { "$ref": "#/$defs/claim" },
+    "birthPlace": { "$ref": "#/$defs/claim" },
+    "documentType": { "$ref": "#/$defs/claim" },
+    "mrz": {
+      "type": "object",
+      "description": "Zona de lectura mecánica cuando el documento la tiene, con el resultado de la validación matemática.",
+      "additionalProperties": false,
+      "properties": {
+        "format": { "enum": ["TD1", "TD2", "TD3", "MRVA", "MRVB"] },
+        "rawLines": { "type": "array", "items": { "type": "string" }, "minItems": 2, "maxItems": 3 },
+        "checkDigits": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "documentNumber": { "type": "boolean" },
+            "birthDate": { "type": "boolean" },
+            "expiryDate": { "type": "boolean" },
+            "personalNumber": { "type": "boolean" },
+            "composite": { "type": "boolean" }
+          }
+        },
+        "allValid": { "type": "boolean", "description": "Verdadero solo si todos los dígitos de control aplicables cuadran. Es la señal antifraude más barata y más fuerte del pipeline documental." }
+      }
+    },
+    "crossValidation": {
+      "type": "object",
+      "description": "Coherencia entre las fuentes. Un dato presente en MRZ y en OCR con el mismo valor vale mucho más que el mismo dato presente solo en la salida del modelo de lenguaje.",
+      "additionalProperties": false,
+      "properties": {
+        "mrzVsOcrAgreement": { "type": "number", "minimum": 0, "maximum": 1 },
+        "declaredVsExtractedAgreement": { "type": "number", "minimum": 0, "maximum": 1 },
+        "conflicts": { "type": "array", "items": { "type": "string" } },
+        "logicalChecks": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "issueBeforeExpiry": { "type": "boolean" },
+            "notExpired": { "type": "boolean" },
+            "plausibleAge": { "type": "boolean" }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "claim": {
+      "type": "object",
+      "required": ["value", "source", "confidence"],
+      "additionalProperties": false,
+      "properties": {
+        "value": { "type": "string", "maxLength": 256 },
+        "normalizedValue": { "type": "string", "maxLength": 256, "description": "Valor tras normalización: mayúsculas, sin diacríticos, sin caracteres de relleno." },
+        "source": { "enum": ["MRZ", "OCR", "LLM", "BARCODE", "CHIP", "SUBJECT_DECLARED", "REGISTRY", "HUMAN_REVIEW"] },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "corroboratedBy": { "type": "array", "items": { "enum": ["MRZ", "OCR", "LLM", "BARCODE", "CHIP", "SUBJECT_DECLARED", "REGISTRY", "HUMAN_REVIEW"] } },
+        "boundingBox": {
+          "type": "object",
+          "description": "Ubicación en la imagen, en coordenadas normalizadas. Sirve para la revisión humana y para diagnosticar errores de OCR.",
+          "additionalProperties": false,
+          "properties": {
+            "left": { "type": "number" }, "top": { "type": "number" },
+            "width": { "type": "number" }, "height": { "type": "number" }
+          }
+        }
+      }
+    },
+    "dateClaim": {
+      "allOf": [{ "$ref": "#/$defs/claim" }],
+      "description": "Reclamo cuyo 'normalizedValue' debe estar en formato ISO 8601 (AAAA-MM-DD). El valor crudo conserva el formato del documento, que varía por país."
+    }
+  }
+}

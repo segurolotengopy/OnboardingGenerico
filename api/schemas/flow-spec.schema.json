@@ -1,0 +1,209 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/segurolotengopy/OnboardingGenerico/api/schemas/flow-spec.schema.json",
+  "title": "FlowSpec — especificación de flujo de onboarding",
+  "description": "Documento declarativo que define la secuencia de pasos de una transacción. Se persiste en el Registro de Capacidades y el Composer lo compila a un plan de ejecución agnóstico de nube, que a su vez se emite como Amazon States Language o como YAML de Cloud Workflows.\n\nEste esquema es el contrato documental; la validación normativa la ejecuta `onboarding_generico.composer.spec.FlowSpec.parse`, que además aplica comprobaciones semánticas (V1 a V7) que un esquema JSON no puede expresar: aciclicidad del grafo, existencia de las dependencias, autorización del proveedor para el inquilino y coherencia entre umbrales y reglas de decisión.\n\nCada versión es inmutable. Modificar un flujo produce una versión nueva; nunca sobrescribe la anterior, porque una sesión en curso debe poder terminar con la especificación con la que empezó.",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "resolution", "required_artifacts", "steps", "decision_policy"],
+  "additionalProperties": false,
+  "properties": {
+    "apiVersion": { "const": "og.flow/v1" },
+    "kind": { "const": "FlowSpec" },
+
+    "metadata": {
+      "type": "object",
+      "required": ["name", "version"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9-]{2,63}$" },
+        "tenant": {
+          "type": "string",
+          "default": "GLOBAL",
+          "description": "Inquilino propietario. 'GLOBAL' designa una plantilla base que los inquilinos heredan y especializan."
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$",
+          "description": "Versionado semántico estricto, sin prefijo ni sufijo. Un cambio de MAJOR indica que las sesiones antiguas no son comparables con las nuevas."
+        },
+        "description": { "type": "string", "maxLength": 500 }
+      }
+    },
+
+    "resolution": {
+      "type": "object",
+      "description": "Criterio por el que el Composer elige esta especificación. Ante varias coincidencias gana la de mayor 'priority'; ante empate, la de mayor versión.",
+      "required": ["countries", "document_types"],
+      "additionalProperties": false,
+      "properties": {
+        "countries": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^([A-Z]{2}|\\*)$" }
+        },
+        "document_types": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": { "$ref": "#/$defs/documentType" }
+        },
+        "tiers": {
+          "type": "array",
+          "items": { "enum": ["IAL1", "IAL2", "IAL3"] },
+          "description": "Nivel de aseguramiento de identidad declarado (NIST SP 800-63A-4). Es una afirmación auditable: el conjunto de pasos debe sustentarla."
+        },
+        "channels": { "type": "array", "items": { "enum": ["MOBILE_SDK", "WEB", "API_ONLY", "AGENT_ASSISTED"] } },
+        "priority": { "type": "integer", "minimum": 0, "maximum": 1000, "default": 100 }
+      }
+    },
+
+    "required_artifacts": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": { "$ref": "#/$defs/artifact" }
+    },
+
+    "steps": {
+      "type": "array", "minItems": 1, "maxItems": 40,
+      "items": { "$ref": "#/$defs/step" }
+    },
+
+    "decision_policy": { "$ref": "#/$defs/decisionPolicy" },
+
+    "retention": {
+      "type": "object",
+      "description": "Los plazos los fija el responsable del tratamiento en el contrato. El middleware los implementa, no los elige. Por eso el valor habitual es heredar del inquilino.",
+      "additionalProperties": false,
+      "properties": {
+        "inherits_from": { "enum": ["tenant", "flow"], "default": "tenant" },
+        "session_ttl_seconds": { "type": "integer", "minimum": 300, "maximum": 86400 },
+        "kyc_file_retention_days": { "type": "integer", "minimum": 1 },
+        "biometric_retention_days": { "type": "integer", "minimum": 0 }
+      }
+    }
+  },
+
+  "$defs": {
+
+    "documentType": {
+      "enum": ["PASSPORT", "ID_CARD", "RESIDENCE_PERMIT", "DRIVING_LICENSE", "INE_2019", "INE_2021", "CI_BO", "CI_PY", "UNKNOWN", "*"]
+    },
+
+    "artifactSlot": {
+      "enum": ["DOC_FRONT", "DOC_BACK", "SELFIE", "LIVENESS_VIDEO", "PROOF_OF_ADDRESS"]
+    },
+
+    "artifact": {
+      "type": "object",
+      "required": ["slot", "mime_types", "max_bytes", "data_class"],
+      "additionalProperties": false,
+      "properties": {
+        "slot": { "$ref": "#/$defs/artifactSlot" },
+        "mime_types": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+        "max_bytes": { "type": "integer", "minimum": 1024, "maximum": 52428800 },
+        "data_class": {
+          "enum": ["DOCUMENT", "BIOMETRIC", "DERIVED", "METADATA"],
+          "description": "Gobierna la retención y la purga. La clasificación no es una etiqueta descriptiva: determina qué se conserva bajo obligación AML y qué debe minimizarse."
+        },
+        "purge_after_decision": {
+          "type": "boolean",
+          "description": "Obligatoriamente verdadero cuando 'data_class' es BIOMETRIC. Los datos biométricos no están cubiertos por la obligación de conservación AML y su minimización es exigible (Art. 25 del GDPR). El validador del núcleo rechaza la especificación si no lo es."
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "data_class": { "const": "BIOMETRIC" } }, "required": ["data_class"] },
+          "then": { "properties": { "purge_after_decision": { "const": true } }, "required": ["purge_after_decision"] }
+        }
+      ]
+    },
+
+    "step": {
+      "type": "object",
+      "required": ["id", "capability", "provider"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,63}$" },
+        "capability": {
+          "type": "string",
+          "pattern": "^[a-z]+(\\.[a-z]+)+\\.v[0-9]+(@[\\^~]?[0-9]+\\.[0-9]+(\\.[0-9]+)?)?$",
+          "description": "Identificador versionado de la capacidad con restricción opcional de versión del adaptador, por ejemplo 'ocr.document.v1@^1.4'. La versión mayor forma parte del identificador para que un cambio incompatible de contrato no pase inadvertido.",
+          "examples": ["document.alignment.v1@^1.0", "ocr.document.v1@^1.4", "biometrics.liveness.v2@^2.0"]
+        },
+        "provider": { "type": "string", "minLength": 1, "description": "Proveedor primario. Debe estar registrado, activo y autorizado para el inquilino; si no lo está, la especificación se rechaza al resolverla, no al ejecutarla." },
+        "fallback_provider": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Cadena de proveedores alternos, en orden. Se recorre cuando el paso falla o queda inconcluso. NO se recorre ante un resultado negativo: 'no coincide' es una respuesta válida, y reintentarla contra otro proveedor facturable solo compra la respuesta que uno quería oír."
+        },
+        "depends_on": {
+          "type": "array", "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,63}$" },
+          "description": "El grafo resultante debe ser acíclico. El Composer lo verifica en la comprobación V3."
+        },
+        "inputs": {
+          "type": "object",
+          "description": "Enlaces de datos del paso. Admite referencias '${artifacts.SLOT.pointer}', '${steps.<id>.output.<campo>}' y '${session.<campo>}'. Obsérvese que se pasan PUNTEROS a objetos, nunca contenido: el estado del orquestador tiene topes duros (256 KiB por payload en Step Functions, 512 KB acumulados por ejecución en Cloud Workflows).",
+          "additionalProperties": true
+        },
+        "thresholds": {
+          "type": "object",
+          "description": "Umbrales aplicados al resultado. Se sellan junto con la decisión para que sea reproducible años después.",
+          "additionalProperties": { "type": "number" }
+        },
+        "retries": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "max": { "type": "integer", "minimum": 0, "maximum": 5 },
+            "base_ms": { "type": "integer", "minimum": 10, "maximum": 60000 },
+            "jitter": { "enum": ["none", "full", "equal"], "default": "full" }
+          }
+        },
+        "required": { "type": "boolean", "default": true, "description": "Si es falso, un fallo del paso no bloquea el flujo." },
+        "on_failure": {
+          "enum": ["ABORT", "REQUEST_RECAPTURE", "HUMAN_REVIEW", "CONTINUE"],
+          "default": "ABORT"
+        },
+        "wait": {
+          "enum": ["NONE", "SHORT", "LONG"],
+          "default": "NONE",
+          "description": "Determina el reparto entre flujo padre e hijo al compilar. LONG obliga a permanecer en el flujo padre duradero: un paso con espera larga no cabe en un flujo Express de cinco minutos, ni en un callback de Cloud Workflows con vencimiento de doce horas."
+        },
+        "compensable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Indica si el paso admite compensación al abortar la saga. Los pasos que consumen cuota facturable de un tercero suelen no serlo."
+        }
+      }
+    },
+
+    "decisionPolicy": {
+      "type": "object",
+      "required": ["issuer", "default", "rules"],
+      "additionalProperties": false,
+      "properties": {
+        "issuer": {
+          "enum": ["MIDDLEWARE", "SIGNALS_ONLY", "REQUESTER_CONFIRMS"],
+          "description": "Quién emite el veredicto. SIGNALS_ONLY es obligatorio donde la debida diligencia no es delegable: en Bolivia, el art. 32(II) del Instructivo UIF lo impide, de modo que el middleware entrega señales y la entidad decide."
+        },
+        "default": { "enum": ["APPROVED", "REJECTED", "MANUAL_REVIEW", "SIGNALS_ONLY", "INCONCLUSIVE"] },
+        "rules": {
+          "type": "array",
+          "description": "Se evalúan en orden; la primera que se cumple determina el veredicto. El orden importa y es parte del contrato.",
+          "items": {
+            "type": "object",
+            "required": ["when", "then", "reason"],
+            "additionalProperties": false,
+            "properties": {
+              "when": { "type": "string", "minLength": 1, "description": "Expresión sobre las salidas de los pasos y sus umbrales." },
+              "then": { "enum": ["APPROVED", "REJECTED", "MANUAL_REVIEW", "INCONCLUSIVE"] },
+              "reason": {
+                "type": "string",
+                "pattern": "^[A-Z][A-Z0-9_]{2,63}$",
+                "description": "Código de razón estable. Viaja a la API, al registro de auditoría y a los informes regulatorios: renombrarlo es un cambio incompatible.",
+                "examples": ["PAD_INJECTION_DETECTED", "FACE_NO_MATCH", "OCR_LOW_CONFIDENCE", "MRZ_CHECKDIGIT_MISMATCH"]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

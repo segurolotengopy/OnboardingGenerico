@@ -1,0 +1,21 @@
+# Propietarios por área. Toda ruta debe tener al menos un revisor obligatorio.
+# Sustituya los marcadores por los equipos reales de la organización.
+
+*                               @segurolotengopy
+
+# El núcleo del dominio y la criptografía requieren revisión de arquitectura:
+# un error aquí no se corrige con un parche, se corrige con una migración de datos.
+/src/onboarding_generico/domain/    @segurolotengopy
+/src/onboarding_generico/ports/     @segurolotengopy
+/src/onboarding_generico/crypto/    @segurolotengopy
+
+# La infraestructura toca aislamiento entre inquilinos y gestión de claves.
+/infra/                             @segurolotengopy
+
+# Las decisiones de arquitectura no se cambian sin revisión explícita.
+/docs/adr/                          @segurolotengopy
+
+# El cumplimiento normativo tiene consecuencias contractuales.
+/docs/11-cumplimiento-normativo.md  @segurolotengopy
+/docs/12-retencion-y-borrado.md     @segurolotengopy
+/SECURITY.md                        @segurolotengopy

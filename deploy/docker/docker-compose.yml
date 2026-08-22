@@ -1,0 +1,87 @@
+# Entorno de desarrollo local.
+#
+# Levanta el middleware con los adaptadores en memoria: no requiere credenciales
+# de nube ni conexión a AWS o GCP. Es el entorno con el que se desarrollan y
+# prueban el núcleo, el motor de composición y los casos de uso.
+#
+# Para probar contra servicios reales, use los perfiles opcionales de abajo.
+
+name: onboarding-generico
+
+services:
+
+  api:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.api
+      args:
+        CLOUD_EXTRA: api
+    image: onboarding-generico/api:local
+    environment:
+      OG_CLOUD_PROVIDER: inmemory
+      OG_ENVIRONMENT: local
+      OG_LOG_LEVEL: DEBUG
+      OG_REDACT_PII: "true"
+    ports:
+      - "8080:8080"
+    volumes:
+      # Recarga del código sin reconstruir la imagen.
+      - ../../src:/app/src:ro
+      - ../../tests/fixtures:/app/fixtures:ro
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/v1/health"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # Perfil "cv": plano de inferencia local. Requiere pesos de modelos en
+  # deploy/docker/models/ (ver models.README.md antes de poblarlo).
+  # ---------------------------------------------------------------------------
+  inference:
+    profiles: ["cv"]
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.inference
+    image: onboarding-generico/inference:local
+    environment:
+      OG_LOG_LEVEL: DEBUG
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./models:/app/models:ro
+    deploy:
+      resources:
+        limits:
+          # Refleja el dimensionado real del contenedor de inferencia. Ajústelo
+          # por perfilado medido de sus modelos, no por una cifra heredada.
+          memory: 4G
+          cpus: "2"
+
+  # ---------------------------------------------------------------------------
+  # Perfil "aws": emulación local de DynamoDB y S3 para probar el adaptador de
+  # AWS sin una cuenta real. No emula IAM, así que NO sirve para validar el
+  # aislamiento ABAC: eso solo se verifica contra AWS de verdad.
+  # ---------------------------------------------------------------------------
+  dynamodb:
+    profiles: ["aws"]
+    image: amazon/dynamodb-local:latest
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-inMemory"]
+    ports:
+      - "8000:8000"
+
+  minio:
+    profiles: ["aws"]
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: desarrollo
+      MINIO_ROOT_PASSWORD: desarrollo-local-no-usar-en-produccion
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+
+volumes:
+  minio-data:

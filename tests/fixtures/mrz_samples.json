@@ -1,0 +1,109 @@
+{
+  "canonical": {
+    "td1": {
+      "description": "Ejemplo canonico ICAO Doc 9303, tarjeta de identidad TD1 (3x30)",
+      "lines": [
+        "I<UTOD231458907<<<<<<<<<<<<<<<",
+        "7408122F1204159UTO<<<<<<<<<<<6",
+        "ERIKSSON<<ANNA<MARIA<<<<<<<<<<"
+      ],
+      "expected": {
+        "format": "TD1",
+        "document_code": "I<",
+        "issuing_state": "UTO",
+        "document_number": "D23145890",
+        "document_number_check": "7",
+        "birth_date": "1974-08-12",
+        "birth_date_check": "2",
+        "sex": "F",
+        "expiry_date": "2012-04-15",
+        "expiry_date_check": "9",
+        "nationality": "UTO",
+        "composite_check": "6",
+        "surname": "ERIKSSON",
+        "given_names": "ANNA MARIA",
+        "all_checks_pass": true
+      }
+    },
+    "td2": {
+      "description": "Ejemplo canonico ICAO Doc 9303, TD2 (2x36)",
+      "lines": [
+        "I<UTOERIKSSON<<ANNA<MARIA<<<<<<<<<<<",
+        "D231458907UTO7408122F1204159<<<<<<<6"
+      ],
+      "expected": {
+        "format": "TD2",
+        "document_code": "I<",
+        "issuing_state": "UTO",
+        "document_number": "D23145890",
+        "document_number_check": "7",
+        "birth_date": "1974-08-12",
+        "birth_date_check": "2",
+        "sex": "F",
+        "expiry_date": "2012-04-15",
+        "expiry_date_check": "9",
+        "nationality": "UTO",
+        "composite_check": "6",
+        "surname": "ERIKSSON",
+        "given_names": "ANNA MARIA",
+        "all_checks_pass": true
+      }
+    },
+    "td3": {
+      "description": "Ejemplo canonico ICAO Doc 9303, pasaporte TD3 (2x44)",
+      "lines": [
+        "P<UTOERIKSSON<<ANNA<MARIA<<<<<<<<<<<<<<<<<<<",
+        "L898902C36UTO7408122F1204159ZE184226B<<<<<10"
+      ],
+      "expected": {
+        "format": "TD3",
+        "document_code": "P<",
+        "issuing_state": "UTO",
+        "document_number": "L898902C3",
+        "document_number_check": "6",
+        "birth_date": "1974-08-12",
+        "birth_date_check": "2",
+        "sex": "F",
+        "expiry_date": "2012-04-15",
+        "expiry_date_check": "9",
+        "nationality": "UTO",
+        "personal_number": "ZE184226B",
+        "personal_number_check": "1",
+        "composite_check": "0",
+        "surname": "ERIKSSON",
+        "given_names": "ANNA MARIA",
+        "all_checks_pass": true
+      }
+    }
+  },
+  "check_digit_vectors": [
+    {"data": "D23145890", "expected": 7, "note": "ejemplo trabajado de la referencia A.1.1"},
+    {"data": "740812", "expected": 2, "note": "fecha de nacimiento"},
+    {"data": "120415", "expected": 9, "note": "fecha de expiracion"},
+    {"data": "L898902C3", "expected": 6, "note": "numero de pasaporte TD3"},
+    {"data": "ZE184226B<<<<<", "expected": 1, "note": "numero personal TD3 con relleno"},
+    {"data": "", "expected": 0, "note": "cadena vacia"},
+    {"data": "<<<<<<<<<<<<<<", "expected": 0, "note": "solo relleno"}
+  ],
+  "td3_empty_personal_number": {
+    "description": "TD3 con numero personal vacio y CD '<' en la posicion 43, admitido por ICAO",
+    "lines": [
+      "P<UTOERIKSSON<<ANNA<MARIA<<<<<<<<<<<<<<<<<<<",
+      "L898902C36UTO7408122F1204159<<<<<<<<<<<<<<<0"
+    ],
+    "note": "El CD del numero personal se genera en la prueba para no fijar un digito compuesto a mano."
+  },
+  "corrupted": {
+    "description": "TD1 canonico con el digito de control del documento alterado de 7 a 8",
+    "lines": [
+      "I<UTOD231458908<<<<<<<<<<<<<<<",
+      "7408122F1204159UTO<<<<<<<<<<<6",
+      "ERIKSSON<<ANNA<MARIA<<<<<<<<<<"
+    ],
+    "expected_failed_checks": ["composite", "document_number"]
+  },
+  "invalid_geometry": {
+    "description": "Longitud de linea que no corresponde a TD1, TD2 ni TD3",
+    "lines": ["P<UTOERIKSSON<<ANNA", "L898902C36UTO"]
+  }
+}

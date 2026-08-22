@@ -1,0 +1,103 @@
+name: Seguridad
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Los análisis programados detectan vulnerabilidades publicadas después
+    # de la última integración, que es cuando aparece la mayoría.
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  secretos:
+    name: Búsqueda de secretos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  sast:
+    name: Análisis estático
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install bandit[toml] ruff
+      - name: Bandit
+        run: bandit -r src/onboarding_generico -f sarif -o bandit.sarif || true
+      - name: Reglas de seguridad de ruff
+        run: ruff check --select S src
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with: { sarif_file: bandit.sarif }
+
+  dependencias:
+    name: Vulnerabilidades en dependencias
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: |
+          pip install pip-audit
+          pip install -e ".[dev,api]"
+      - run: pip-audit --strict --desc
+
+  licencias:
+    name: Cumplimiento de licencias
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: |
+          pip install pip-licenses
+          pip install -e ".[dev,api]"
+      - name: Prohibir copyleft de red y licencias ausentes
+        run: |
+          # Política de ADR-0012. AGPL alcanzaría a todo el servicio expuesto por red;
+          # 'UNKNOWN' significa que nadie verificó la licencia, que es peor.
+          pip-licenses --format=json > licencias.json
+          python - <<'PY'
+          import json, sys
+          prohibidas = ("AGPL", "SSPL", "Commons Clause", "Elastic License", "UNKNOWN")
+          hallazgos = [
+              p for p in json.load(open("licencias.json"))
+              if any(t.lower() in p["License"].lower() for t in prohibidas)
+          ]
+          if hallazgos:
+              for p in hallazgos:
+                  print(f"::error::{p['Name']} {p['Version']} -> {p['License']}")
+              sys.exit(1)
+          print("Todas las licencias de dependencias son admisibles.")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: inventario-de-licencias, path: licencias.json }
+
+  iac:
+    name: Análisis de infraestructura
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkov
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: infra/terraform
+          framework: terraform
+          output_format: cli,sarif
+          output_file_path: console,checkov.sarif
+          soft_fail: true
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with: { sarif_file: checkov.sarif }

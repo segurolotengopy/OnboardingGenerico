@@ -1,0 +1,59 @@
+name: Nueva capacidad o proveedor
+description: Proponer una capacidad del catálogo o un proveedor que la implemente
+labels: ["capacidad", "triage"]
+body:
+  - type: dropdown
+    id: tipo
+    attributes:
+      label: Qué propone
+      options:
+        - Una capacidad nueva del catálogo
+        - Un proveedor nuevo para una capacidad existente
+        - Soporte de un país o formato de documento nuevo
+    validations: { required: true }
+  - type: textarea
+    id: necesidad
+    attributes:
+      label: Necesidad de negocio
+      description: Qué inquilino o mercado lo requiere y con qué volumen estimado.
+    validations: { required: true }
+  - type: input
+    id: capacidad
+    attributes:
+      label: Identificador de capacidad
+      placeholder: ocr.document.v1
+  - type: textarea
+    id: proveedor
+    attributes:
+      label: Proveedor propuesto
+      value: |
+        - Nombre y URL:
+        - Naturaleza: MANAGED_AWS | MANAGED_GCP | SAAS_THIRD_PARTY | OPEN_SOURCE_LOCAL | LLM_MULTIMODAL
+        - Superficie de integración: API HTTP | SDK | contenedor
+        - Disponible en: AWS | GCP | ambas
+  - type: textarea
+    id: licencias
+    attributes:
+      label: Licencias verificadas
+      description: |
+        Obligatorio para proveedores de código abierto. La licencia de los pesos del modelo
+        se evalúa por separado de la del código; varios modelos habituales en este dominio
+        son de uso exclusivamente investigativo. Ver ADR-0012.
+      value: |
+        - Licencia del código (verificada en el archivo LICENSE, no en el README):
+        - Licencia de los pesos del modelo:
+        - ¿Apto para uso comercial B2B?:
+    validations: { required: true }
+  - type: textarea
+    id: evidencia
+    attributes:
+      label: Evidencia de desempeño
+      description: Métricas medidas o publicadas. Para biometría, FMR/FNMR y certificación PAD si la tiene.
+  - type: checkboxes
+    id: verificaciones
+    attributes:
+      label: Verificaciones previas
+      options:
+        - label: Revisé que la capacidad no exista ya en el catálogo
+        - label: La licencia no es AGPL, SSPL ni está ausente
+        - label: El proveedor admite acuerdo de subencargado si procesa datos personales
