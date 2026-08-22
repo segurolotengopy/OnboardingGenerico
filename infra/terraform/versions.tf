@@ -18,13 +18,13 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.60"
+      version = "~> 6.60"
     }
 
     # El provider estable de Google cubre casi todos los recursos usados.
     google = {
       source  = "hashicorp/google"
-      version = "~> 6.10"
+      version = "~> 7.45"
     }
 
     # ADVERTENCIA: los recursos `google_api_gateway_*` han vivido historicamente
@@ -33,7 +33,7 @@ terraform {
     # despliega el arbol de GCP.
     google-beta = {
       source  = "hashicorp/google-beta"
-      version = "~> 6.10"
+      version = "~> 7.45"
     }
 
     archive = {
