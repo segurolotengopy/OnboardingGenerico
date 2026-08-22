@@ -81,7 +81,7 @@ jobs:
               sys.exit(1)
           print("Todas las licencias de dependencias son admisibles.")
           PY
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with: { name: inventario-de-licencias, path: licencias.json }
 
