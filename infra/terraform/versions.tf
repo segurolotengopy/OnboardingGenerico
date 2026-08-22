@@ -18,7 +18,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.60"
+      version = "~> 6.60"
     }
 
     # El provider estable de Google cubre casi todos los recursos usados.
