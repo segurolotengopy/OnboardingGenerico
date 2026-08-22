@@ -33,7 +33,7 @@ terraform {
     # despliega el arbol de GCP.
     google-beta = {
       source  = "hashicorp/google-beta"
-      version = "~> 6.10"
+      version = "~> 7.45"
     }
 
     archive = {
