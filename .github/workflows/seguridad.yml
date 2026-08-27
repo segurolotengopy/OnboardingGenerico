@@ -123,7 +123,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Checkov
-        uses: bridgecrewio/checkov-action@99bb2caf247dfd9f03cf984373bc6043d4e32ebf # v12.1347.0
+        # Sin tag utilizable: la última release (v12.1347.0) es de marzo de 2022 y no
+        # conoce output_file_path ni otros 27 inputs. El proyecto solo mantiene master,
+        # así que se fija el SHA de master y se refresca a mano en cada revisión.
+        uses: bridgecrewio/checkov-action@5659ddea96102e16d8f221b3d8402453c0b1c150 # master @ 2026-08-26
         with:
           directory: infra/terraform
           framework: terraform
