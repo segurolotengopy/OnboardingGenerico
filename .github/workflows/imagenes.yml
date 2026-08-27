@@ -28,7 +28,7 @@ jobs:
           - imagen: inference
             dockerfile: deploy/docker/Dockerfile.inference
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4
       - name: Metadatos
         id: meta
@@ -72,7 +72,7 @@ jobs:
         # bibliotecas de visión artificial y tiempo de ejecución de modelos.
         imagen: [api, inference]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - name: Normalizar la referencia de la imagen
         # Las referencias OCI solo admiten minúsculas y `github.repository`
         # conserva las mayúsculas del nombre del repositorio. Al publicar,
@@ -92,7 +92,7 @@ jobs:
           format: sarif
           output: trivy.sarif
           severity: CRITICAL,HIGH
-      - uses: github/codeql-action/upload-sarif@v4
+      - uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4
         # `category` separa los resultados por imagen. Sin él, la segunda carga
         # sustituye a la primera en Code Scanning y solo se vería una de las dos.
         with:
