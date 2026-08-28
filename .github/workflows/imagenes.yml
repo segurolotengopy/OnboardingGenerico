@@ -28,11 +28,11 @@ jobs:
           - imagen: inference
             dockerfile: deploy/docker/Dockerfile.inference
     steps:
-      - uses: actions/checkout@v5
-      - uses: docker/setup-buildx-action@v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4
       - name: Metadatos
         id: meta
-        uses: docker/metadata-action@v6
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
         with:
           images: ghcr.io/${{ github.repository }}/${{ matrix.imagen }}
           tags: |
@@ -40,13 +40,13 @@ jobs:
             type=ref,event=pr
             type=semver,pattern={{version}}
             type=sha,format=long
-      - uses: docker/login-action@v4
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
         if: github.event_name != 'pull_request'
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v7
+      - uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
         with:
           context: .
           file: ${{ matrix.dockerfile }}
@@ -72,7 +72,7 @@ jobs:
         # bibliotecas de visión artificial y tiempo de ejecución de modelos.
         imagen: [api, inference]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - name: Normalizar la referencia de la imagen
         # Las referencias OCI solo admiten minúsculas y `github.repository`
         # conserva las mayúsculas del nombre del repositorio. Al publicar,
@@ -86,13 +86,13 @@ jobs:
           REVISION: ${{ github.sha }}
           NOMBRE: ${{ matrix.imagen }}
         run: echo "IMAGEN=ghcr.io/${REPOSITORIO,,}/${NOMBRE}:sha-${REVISION}" >> "$GITHUB_ENV"
-      - uses: aquasecurity/trivy-action@master
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: ${{ env.IMAGEN }}
           format: sarif
           output: trivy.sarif
           severity: CRITICAL,HIGH
-      - uses: github/codeql-action/upload-sarif@v4
+      - uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4
         # `category` separa los resultados por imagen. Sin él, la segunda carga
         # sustituye a la primera en Code Scanning y solo se vería una de las dos.
         with:
