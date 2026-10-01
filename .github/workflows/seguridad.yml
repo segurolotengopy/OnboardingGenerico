@@ -60,7 +60,7 @@ jobs:
         # Si un fallo anterior impidió generar el informe, no se intenta subirlo:
         # el error que importa ya se reportó en el paso que lo produjo.
         if: always() && hashFiles('bandit.sarif') != ''
-        uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4
         with: { sarif_file: bandit.sarif }
 
   dependencias:
@@ -133,6 +133,6 @@ jobs:
           output_format: cli,sarif
           output_file_path: console,checkov.sarif
           soft_fail: true
-      - uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4
+      - uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4
         if: always()
         with: { sarif_file: checkov.sarif }
