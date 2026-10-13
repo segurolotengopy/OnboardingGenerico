@@ -70,7 +70,7 @@ dev = [
   # comprobaciones nuevas en cada minor, asi que un rango abierto hace que el
   # CI falle sin que nadie haya tocado el codigo. Los pines coinciden con los
   # `rev` de .pre-commit-config.yaml; se suben juntos y de forma deliberada.
-  "ruff>=0.16,<0.17",
+  "ruff>=0.16,<0.18",
   "mypy>=2.3,<3",
   "types-boto3 ; python_version >= '3.11'",
   "pre-commit>=3.7",
