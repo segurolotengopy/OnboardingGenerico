@@ -11,6 +11,14 @@ updates:
   - package-ecosystem: github-actions
     directory: "/"
     schedule: { interval: monthly }
+    groups:
+      # init, analyze y upload-sarif comparten repositorio y deben usar la misma
+      # versión: init escribe una configuración que analyze valida contra su
+      # propia versión. Si Dependabot los sube en PR separados, uno queda atrás
+      # y CodeQL falla con "Loaded a configuration file for version X, but
+      # running version Y".
+      codeql-action:
+        patterns: ["github/codeql-action/*"]
 
   - package-ecosystem: terraform
     directory: "/infra/terraform"
