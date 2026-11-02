@@ -19,7 +19,7 @@ jobs:
     name: Búsqueda de secretos
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: { fetch-depth: 0 }
       - name: Gitleaks sobre todo el historial
         # Se escanea el repositorio completo en vez de un rango de commits. El
@@ -42,7 +42,7 @@ jobs:
     name: Análisis estático
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with: { python-version: "3.14" }
       # El formateador SARIF de bandit vive en el extra `sarif`; sin él,
@@ -67,7 +67,7 @@ jobs:
     name: Vulnerabilidades en dependencias
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with: { python-version: "3.14" }
       - run: |
@@ -89,7 +89,7 @@ jobs:
     name: Cumplimiento de licencias
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with: { python-version: "3.14" }
       - run: |
@@ -121,7 +121,7 @@ jobs:
     name: Análisis de infraestructura
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Checkov
         # Sin tag utilizable: la última release (v12.1347.0) es de marzo de 2022 y no
         # conoce output_file_path ni otros 27 inputs. El proyecto solo mantiene master,
